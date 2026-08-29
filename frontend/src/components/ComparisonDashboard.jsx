@@ -27,6 +27,10 @@ export default function ComparisonDashboard({ result }) {
             <span className="metric-label">Fraud Risk Retried</span>
             <span className="metric-value">{baseline.fraud_retried}</span>
           </div>
+          <div className="metric danger">
+            <span className="metric-label">Customer Issues Wasted</span>
+            <span className="metric-value">{baseline.customer_issues_retried || 0}</span>
+          </div>
           <div className="metric">
             <span className="metric-label">Has Negotiation</span>
             <span className="metric-value">{baseline.has_negotiation ? 'Yes' : 'No'}</span>
@@ -69,6 +73,7 @@ export default function ComparisonDashboard({ result }) {
         <ul>
           <li>✅ AI recovered <strong>₹{comp.extra_recovered.toLocaleString()} more</strong> ({comp.extra_recovered_percent}% improvement)</li>
           <li>🛡️ AI prevented <strong>{comp.fraud_exposure_prevented} fraud-risk retries</strong> that the baseline blindly attempted</li>
+          <li>🚫 AI avoided <strong>{comp.customer_issues_wasted} wasted retries</strong> on customer issues (expired cards, insufficient funds)</li>
           <li>🎯 AI escalated <strong>{comp.escalations_only_by_ai} cases</strong> to human review instead of wasting retries</li>
           <li>💬 AI used <strong>bounded negotiation</strong> for high-value invoices, something the baseline cannot do</li>
         </ul>

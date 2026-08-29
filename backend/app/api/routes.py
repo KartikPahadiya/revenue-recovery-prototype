@@ -226,8 +226,12 @@ def run_comparison(limit: int | None = None, source: str = "sample"):
             "extra_recovered": improvement,
             "extra_recovered_percent": improvement_pct,
             "fraud_exposure_prevented": baseline["fraud_retried"],
+            "customer_issues_wasted": baseline.get("customer_issues_retried", 0),
             "escalations_only_by_ai": ai_escalated,
-            "summary": f"AI recovered ₹{improvement} more than naive retry-all ({improvement_pct}% improvement)",
+            "summary": (
+                f"AI recovered ₹{improvement} more than naive retry-all ({improvement_pct}% improvement). "
+                f"Baseline wasted {baseline.get('customer_issues_retried', 0)} retries on customer issues and retried {baseline['fraud_retried']} fraud cases."
+            ),
         },
     }
 
