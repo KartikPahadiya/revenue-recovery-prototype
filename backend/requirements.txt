@@ -10,4 +10,3 @@ langchain-groq==0.2.0
 langchain-nvidia-ai-endpoints==0.3.5
 numpy==1.26.4
 langchain-ollama==0.2.0
-razorpay==1.4.2

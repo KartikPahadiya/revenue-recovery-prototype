@@ -18,7 +18,6 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 
 print(f"[startup] LLM_PROVIDER={config.LLM_PROVIDER}")
-print(f"[startup] RAZORPAY_ENABLED={config.RAZORPAY_ENABLED}")
 if config.LLM_PROVIDER == "ollama":
     print(f"[startup] OLLAMA_MODEL={config.OLLAMA_MODEL}")
 else:

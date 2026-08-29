@@ -17,10 +17,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
-RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
-RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
-RAZORPAY_ENABLED = bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)
-RAZORPAY_MAX_LINKS_PER_BATCH = int(os.getenv("RAZORPAY_MAX_LINKS_PER_BATCH", "3"))
 
 # --- Policy engine constants (the "bounded and gated" rules) ---
 MAX_RETRIES_PER_TRANSACTION = 3

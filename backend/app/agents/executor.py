@@ -1,18 +1,13 @@
 """
-Executor: for actions that involve payment collection, creates a REAL
-Razorpay test-mode Payment Link (a verifiable artifact) when Razorpay
-credentials are configured. Whether the customer actually pays it is still
-simulated (we can't force a real human to click "pay" in an automated
-demo) -- but the link itself is genuine, not a fabricated placeholder.
+Executor: simulates recovery outcomes for a hackathon demo.
 
-If Razorpay isn't configured, falls back to pure simulation so the
-pipeline still runs end-to-end without setup.
+In a production system this node would enqueue real payment operations and
+reconcile outcomes from provider webhooks. For the demo, keeping execution
+simulated avoids external API limits and makes every run reliable.
 """
 import random
 from app.agents.state import RecoveryState
 from app.agents.policy_engine import record_bandit_outcome
-from app.utils.razorpay_client import create_recovery_payment_link
-from app import config
 from app.agents.state import update_status
 
 ACTION_SUCCESS_ODDS = {
@@ -26,20 +21,12 @@ ACTION_SUCCESS_ODDS = {
     "do_not_touch": 0.0,
 }
 
-# actions that involve asking the customer to pay -- these get a real payment link
-PAYMENT_LINK_ACTIONS = {
-    "retry_now", "retry_immediately", "retry_in_3_days",
-    "send_update_card_link", "notify_customer",
-}
-
-
 def execute_node(state: RecoveryState) -> RecoveryState:
     if state.get("halted"):
         return state
 
     txn_by_id = {t["transaction_id"]: t for t in state["transactions"]}
     results = []
-    links_created = 0
     total = len(state["decisions"])
 
     for index, decision in enumerate(state["decisions"], start=1):
@@ -54,17 +41,6 @@ def execute_node(state: RecoveryState) -> RecoveryState:
         odds = ACTION_SUCCESS_ODDS.get(action, 0.3)
         success = random.random() < odds
 
-        payment_link = None
-        if action in PAYMENT_LINK_ACTIONS and links_created < config.RAZORPAY_MAX_LINKS_PER_BATCH:
-            payment_link = create_recovery_payment_link(
-                transaction_id=txn["transaction_id"],
-                amount=float(txn["amount"]),
-                customer_name=txn["customer_name"],
-                description=f"Recovery: {txn['leak_type']} for {txn['transaction_id']}",
-            )
-            if payment_link:
-                links_created += 1
-
         if action in ("retry_immediately", "retry_in_3_days", "send_update_card_link"):
             record_bandit_outcome(action, success)
 
@@ -78,10 +54,8 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "action_taken": action,
             "outcome": outcome,
             "amount_recovered": amount_recovered,
+            "execution_mode": "simulated",
         }
-        if payment_link:
-            result["payment_link_id"] = payment_link["id"]
-            result["payment_link_url"] = payment_link["short_url"]
 
         results.append(result)
 
