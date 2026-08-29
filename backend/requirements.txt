@@ -11,3 +11,16 @@ langchain-nvidia-ai-endpoints==0.3.5
 numpy==1.26.4
 langchain-ollama==0.2.0
 razorpay==1.4.2
+setuptools>=70.0.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+python-dotenv==1.0.1
+pandas==2.2.2
+faker==28.4.1
+langgraph==0.2.34
+langchain-core==0.3.10
+langchain-groq==0.2.0
+langchain-nvidia-ai-endpoints==0.3.5
+numpy==1.26.4
+langchain-ollama==0.2.0
+razorpay==1.4.2
