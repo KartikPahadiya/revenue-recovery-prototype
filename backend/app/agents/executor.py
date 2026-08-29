@@ -13,6 +13,7 @@ from app.agents.state import RecoveryState
 from app.agents.policy_engine import record_bandit_outcome
 from app.utils.razorpay_client import create_recovery_payment_link
 from app import config
+from app.agents.state import update_status
 
 ACTION_SUCCESS_ODDS = {
     "retry_now": 0.7,
@@ -38,21 +39,31 @@ def execute_node(state: RecoveryState) -> RecoveryState:
 
     txn_by_id = {t["transaction_id"]: t for t in state["transactions"]}
     results = []
+    links_created = 0
+    total = len(state["decisions"])
 
-    for decision in state["decisions"]:
+    for index, decision in enumerate(state["decisions"], start=1):
+        update_status(
+            "execute",
+            current=index,
+            total=total,
+            message=f"Executing recovery actions ({index}/{total})",
+        )
         txn = txn_by_id[decision["transaction_id"]]
         action = decision["action"]
         odds = ACTION_SUCCESS_ODDS.get(action, 0.3)
         success = random.random() < odds
 
         payment_link = None
-        if action in PAYMENT_LINK_ACTIONS:
+        if action in PAYMENT_LINK_ACTIONS and links_created < config.RAZORPAY_MAX_LINKS_PER_BATCH:
             payment_link = create_recovery_payment_link(
                 transaction_id=txn["transaction_id"],
                 amount=float(txn["amount"]),
                 customer_name=txn["customer_name"],
                 description=f"Recovery: {txn['leak_type']} for {txn['transaction_id']}",
             )
+            if payment_link:
+                links_created += 1
 
         if action in ("retry_immediately", "retry_in_3_days", "send_update_card_link"):
             record_bandit_outcome(action, success)

@@ -25,7 +25,7 @@ ORDER as the input, each shaped like:
 The "category" field MUST be one of the four values listed above, nothing else.
 Keep each explanation under 15 words. No other text, no markdown fences."""
 
-BATCH_SIZE = 10
+BATCH_SIZE = 25
 MAX_RETRIES = 4
 
 VALID_CATEGORIES = {"temporary_issue", "customer_issue", "bank_issue", "fraud_risk"}
@@ -104,8 +104,7 @@ def diagnose_node(state: RecoveryState) -> RecoveryState:
         done = min((i + 1) * BATCH_SIZE, total)
         print(f"[diagnose] {done}/{total}...")
         update_status("diagnose", current=done, total=total, message=f"Classifying failure reasons ({done}/{total})")
-        # time.sleep(1.5)
-        time.sleep(1.5)  # small pause between batches to stay under token budget
+        time.sleep(0.3)  # small pause between batches to stay under token budget
 
     state["diagnoses"] = diagnoses
     return state
