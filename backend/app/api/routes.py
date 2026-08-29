@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from app.agents.orchestrator import recovery_graph
 from app.agents.state import RecoveryState
 from app.agents.state import pipeline_status, update_status
-from app.agents.baseline import run_naive_baseline
 
 router = APIRouter()
 
@@ -154,85 +153,6 @@ def run_batch(limit: int | None = None, source: str = "sample"):
         "halt_reason": "",
         "audit_trail": final_state["audit_trail"],
         "source": source,
-    }
-
-
-@router.post("/run-comparison")
-def run_comparison(limit: int | None = None, source: str = "sample"):
-    """
-    Run both the AI agent and a naive baseline on the SAME batch,
-    then return side-by-side comparison metrics.
-    """
-    print(f"[run-comparison] request received (limit={limit}, source={source})")
-
-    if source == "user":
-        transactions = load_user_submissions()
-        if not transactions:
-            return {
-                "halted": True,
-                "halt_reason": "No user-submitted transactions yet. Scan the QR code to add some first.",
-            }
-    else:
-        transactions = load_base_transactions()
-
-    if limit:
-        transactions = transactions[:limit]
-
-    # --- AI Agent run ---
-    update_status("detect", message="Starting AI agent pipeline...")
-    ai_state: RecoveryState = {
-        "transactions": transactions,
-        "diagnoses": [],
-        "allocation": [],
-        "decisions": [],
-        "results": [],
-        "audit_trail": [],
-        "halted": False,
-        "halt_reason": "",
-    }
-    ai_final = recovery_graph.invoke(ai_state)
-
-    total_at_risk = sum(float(t["amount"]) for t in transactions)
-    ai_recovered = sum(r["amount_recovered"] for r in ai_final["results"])
-    ai_escalated = sum(1 for r in ai_final["results"] if r["outcome"] == "escalated")
-    ai_real_links = sum(1 for r in ai_final["results"] if r.get("execution_mode") == "real_razorpay_link")
-
-    # --- Naive baseline run ---
-    baseline = run_naive_baseline(transactions)
-
-    # --- Comparison ---
-    improvement = round(ai_recovered - baseline["total_recovered"], 2)
-    improvement_pct = round((improvement / baseline["total_recovered"]) * 100, 2) if baseline["total_recovered"] > 0 else 0
-
-    ai_data = {
-        "total_at_risk": round(total_at_risk, 2),
-        "total_recovered": round(ai_recovered, 2),
-        "recovery_rate": round(ai_recovered / total_at_risk, 4) if total_at_risk else 0,
-        "escalated_count": ai_escalated,
-        "real_razorpay_links": ai_real_links,
-        "has_negotiation": any(r.get("action_taken") == "negotiate" for r in ai_final["results"]),
-        "fraud_blocked": any(
-            d.get("category") == "fraud_risk" and d.get("action") == "do_not_touch"
-            for d in ai_final.get("decisions", [])
-        ),
-    }
-
-    return {
-        "halted": False,
-        "batch_size": len(transactions),
-        "ai_agent": ai_data,
-        "naive_baseline": baseline,
-        "comparison": {
-            "extra_recovered": improvement,
-            "extra_recovered_percent": improvement_pct,
-            "fraud_exposure_prevented": baseline["fraud_retried"],
-            "customer_issues_wasted": baseline.get("customer_issues_retried", 0),
-            "escalations_only_by_ai": ai_escalated,
-            "summary": (
-                f"AI recovered ₹{improvement} more than naive retry-all ({improvement_pct}% improvement). "
-                f"Baseline wasted {baseline.get('customer_issues_retried', 0)} retries on customer issues and retried {baseline['fraud_retried']} fraud cases."
-            ),
-        },
     }
 
 
