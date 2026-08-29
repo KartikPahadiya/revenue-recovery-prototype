@@ -38,7 +38,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   margin-bottom: 20px;
 }
 
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
 .stat-card {
   background: var(--card);
   border-radius: 10px;
@@ -211,6 +211,30 @@ summary { cursor: pointer; }
 }
 
 @keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Badges for real vs simulated */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge.real {
+  background: #1a3a1a;
+  color: #4ade80;
+  border: 1px solid #4ade80;
+}
+
+.badge.sim {
+  background: #2a231b;
+  color: #a89f92;
+  border: 1px solid #3a332b;
+}
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
