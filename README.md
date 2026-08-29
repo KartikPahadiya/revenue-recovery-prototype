@@ -238,6 +238,3 @@ Important production gaps:
 
 Built an AI-powered revenue recovery prototype using FastAPI, React, LangGraph, LLM-based diagnosis, deterministic policy guardrails, Razorpay test-mode payment links, and an explainable audit dashboard for failed payments, subscriptions, and overdue invoices.
 
-## License
-
-MIT
