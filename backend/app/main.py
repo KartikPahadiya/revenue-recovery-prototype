@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.api.routes import router
 from app import config
 
@@ -24,12 +25,18 @@ else:
     print(f"[startup] GROQ_MODEL={config.GROQ_MODEL}")
 
 
-# Serve built frontend static files at root (must be BEFORE any @app.get("/"))
 FRONTEND_DIST = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 )
+index_html = os.path.join(FRONTEND_DIST, "index.html")
+has_frontend = os.path.isfile(index_html)
 
-if os.path.isdir(FRONTEND_DIST):
+if has_frontend:
+    # SPA client-side route: /submit must return index.html so React Router handles it
+    @app.get("/submit")
+    async def serve_submit():
+        return FileResponse(index_html)
+
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 else:
     @app.get("/")

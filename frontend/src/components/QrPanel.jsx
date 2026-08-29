@@ -1,9 +1,12 @@
 import { QRCodeSVG } from 'qrcode.react'
 
+export default function QrPanel() {
+  const submitUrl = `${window.location.origin}/submit`
+
 const LAN_IP = import.meta.env.VITE_LAN_IP || window.location.hostname
 
 export default function QrPanel() {
-  const submitUrl = `http://${LAN_IP}:5173/submit`
+  const submitUrl = `${window.location.origin}/submit`
 
   return (
     <div className="qr-panel">
