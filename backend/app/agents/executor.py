@@ -72,13 +72,14 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "execution_mode": "simulated",
             "payment_link_id": None,
             "payment_link_url": None,
+            "razorpay_error": None,
         }
 
         # Try to create a REAL Razorpay payment link for top-value transactions
-        if razorpay_enabled and success and should_create_real_link(
-            {"action_taken": action},
-            value_ranks.get(txn["transaction_id"], 999)
-        ):
+        rank = value_ranks.get(txn["transaction_id"], 999)
+        eligible = should_create_real_link({"action_taken": action}, rank)
+
+        if razorpay_enabled and success and eligible:
             try:
                 link_id, short_url = create_test_payment_link(
                     customer_name=txn["customer_name"],
@@ -90,10 +91,15 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                 result["execution_mode"] = "real_razorpay_link"
                 real_links_created += 1
             except Exception as e:
-                # Graceful fallback: if Razorpay fails (rate limit, auth error, etc.),
-                # we still have a simulated result. Log and continue.
-                print(f"[razorpay] Failed for {txn['transaction_id']}: {e}")
+                # Include the error in the result so it's visible in the audit trail
+                error_msg = str(e)
+                print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
                 result["execution_mode"] = "simulated (razorpay_failed)"
+                result["razorpay_error"] = error_msg
+        elif not razorpay_enabled:
+            result["razorpay_error"] = "Razorpay keys not configured"
+        elif not eligible:
+            result["razorpay_error"] = f"Not in top 5 (rank {rank}) or action={action}"
 
         results.append(result)
 

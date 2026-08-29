@@ -35,3 +35,11 @@ export async function getSubmissionsCount() {
 export async function clearUserSubmissions() {
   return fetchWithTimeout(`${BASE_URL}/user-submissions`, { method: 'DELETE' })
 }
+
+export async function runComparison(source = 'sample', limit) {
+  const params = new URLSearchParams({ source })
+  if (limit) params.set('limit', limit)
+  return fetchWithTimeout(`${BASE_URL}/run-comparison?${params}`, { method: 'POST' }, 1200000)
+}
+  return fetchWithTimeout(`${BASE_URL}/user-submissions`, { method: 'DELETE' })
+}
