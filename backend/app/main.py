@@ -24,15 +24,14 @@ else:
     print(f"[startup] GROQ_MODEL={config.GROQ_MODEL}")
 
 
-
-@app.get("/")
-def health():
-    return {"status": "ok"}
-
-
+# Serve built frontend static files at root (must be BEFORE any @app.get("/"))
 FRONTEND_DIST = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 )
 
 if os.path.isdir(FRONTEND_DIST):
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+else:
+    @app.get("/")
+    def health():
+        return {"status": "ok"}
