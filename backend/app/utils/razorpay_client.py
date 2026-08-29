@@ -4,15 +4,16 @@ Only creates REAL payment links for the top-N highest-value transactions.
 Everything else falls back to simulated outcomes gracefully.
 """
 import os
-import razorpay
 from app import config
 
 # Lazy init — only created when first needed
 _razorpay_client = None
 
-def get_client():
+def _get_client():
     global _razorpay_client
     if _razorpay_client is None:
+        # Lazy import to avoid startup crash if setuptools/pkg_resources is missing
+        import razorpay
         key_id = os.getenv("RAZORPAY_KEY_ID", "")
         key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
         if not key_id or not key_secret:
@@ -27,7 +28,7 @@ def create_test_payment_link(customer_name: str, amount: float, description: str
     Amount in INR paise (amount * 100).
     Returns (link_id, short_url) or raises on failure.
     """
-    client = get_client()
+    client = _get_client()
     # Razorpay amount is in paise
     amount_paise = int(amount * 100)
 
