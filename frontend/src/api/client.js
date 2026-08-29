@@ -41,5 +41,3 @@ export async function runComparison(source = 'sample', limit) {
   if (limit) params.set('limit', limit)
   return fetchWithTimeout(`${BASE_URL}/run-comparison?${params}`, { method: 'POST' }, 1200000)
 }
-  return fetchWithTimeout(`${BASE_URL}/user-submissions`, { method: 'DELETE' })
-}
