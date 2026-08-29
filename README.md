@@ -180,7 +180,7 @@ Create a `.env` file in the project root using `.env.example`.
 ```env
 LLM_PROVIDER=groq
 GROQ_API_KEY=your_groq_key
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
 
 OLLAMA_MODEL=llama3.2:latest
 OLLAMA_BASE_URL=http://localhost:11434
@@ -238,6 +238,3 @@ Important production gaps:
 
 Built an AI-powered revenue recovery prototype using FastAPI, React, LangGraph, LLM-based diagnosis, deterministic policy guardrails, Razorpay test-mode payment links, and an explainable audit dashboard for failed payments, subscriptions, and overdue invoices.
 
-## License
-
-MIT
