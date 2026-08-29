@@ -31,7 +31,7 @@ def health():
 
 
 FRONTEND_DIST = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend", "dist")
+    os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 )
 
 if os.path.isdir(FRONTEND_DIST):
