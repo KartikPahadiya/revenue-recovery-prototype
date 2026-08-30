@@ -24,6 +24,16 @@ export default function AuditTrail({ auditTrail }) {
             
             {isRealLink && entry.result?.payment_link_url && (
               <p style={{ background: '#1a3a1a', padding: '10px', borderRadius: '6px', marginTop: '8px' }}>
+                <strong>✅ On-Demand Payment Link Ready:</strong><br />
+                <span style={{ fontSize: '12px', color: '#a89f92' }}>
+                  Clicking "Pay Now" in the email will generate a live Razorpay checkout link.
+                </span><br />
+                <a href={entry.result.payment_link_url} target="_blank" rel="noreferrer" style={{ color: '#4ade80', fontWeight: 600, fontSize: '12px' }}>
+                  {entry.result.payment_link_url}
+                </a>
+              </p>
+            )}
+              <p style={{ background: '#1a3a1a', padding: '10px', borderRadius: '6px', marginTop: '8px' }}>
                 <strong>✅ Real Razorpay Payment Link Created:</strong><br />
                 <a href={entry.result.payment_link_url} target="_blank" rel="noreferrer" style={{ color: '#4ade80', fontWeight: 600 }}>
                   {entry.result.payment_link_url}

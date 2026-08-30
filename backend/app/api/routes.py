@@ -3,7 +3,8 @@ import os
 import json
 import uuid
 from datetime import datetime
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from app.agents.orchestrator import recovery_graph
 from app.agents.state import RecoveryState
@@ -79,28 +80,8 @@ def submit_transaction(payload: TransactionSubmission):
 @router.post("/abandon-cart")
 def abandon_cart(payload: CartAbandonment):
     """Simulate a user abandoning their shopping cart on the demo store.
-    Creates a Razorpay payment link immediately to avoid batch-time rate limits."""
-    
-    # Try to create a Razorpay payment link right away (spaced out by user interaction)
-    razorpay_link_id = None
-    razorpay_short_url = None
-    razorpay_error = None
-    
-    razorpay_enabled = bool(os.getenv("RAZORPAY_KEY_ID")) and bool(os.getenv("RAZORPAY_KEY_SECRET"))
-    if razorpay_enabled and payload.cart_value >= 1000:
-        try:
-            from app.utils.razorpay_client import create_test_payment_link
-            link_id, short_url = create_test_payment_link(
-                customer_name=payload.customer_name,
-                amount=float(payload.cart_value),
-                description=f"Cart recovery for {payload.customer_name}",
-            )
-            razorpay_link_id = link_id
-            razorpay_short_url = short_url
-            print(f"[abandon-cart] Razorpay link created: {short_url}")
-        except Exception as e:
-            razorpay_error = str(e)
-            print(f"[abandon-cart] Razorpay link failed: {e}")
+    Razorpay links are NOT created here — they are generated on-demand
+    when the user clicks 'Pay Now' in the email."""
     
     txn = {
         "leak_type": "checkout_abandonment",
@@ -113,19 +94,44 @@ def abandon_cart(payload: CartAbandonment):
         "items": payload.items,
         "retry_count": 0,
         "timestamp": datetime.utcnow().isoformat(),
-        "payment_link_id": razorpay_link_id,
-        "payment_link_url": razorpay_short_url,
-        "razorpay_error": razorpay_error,
     }
     save_user_submission(txn)
     print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart ({payload.reason}): {txn['transaction_id']}")
     return {
         "status": "ok",
         "transaction_id": txn["transaction_id"],
-        "payment_link_created": razorpay_link_id is not None,
-        "payment_link_url": razorpay_short_url,
-        "razorpay_error": razorpay_error,
     }
+
+
+@router.get("/pay/{txn_id}")
+def generate_payment_link(txn_id: str, request: Request):
+    """
+    On-demand Razorpay link generation.
+    Called when user clicks 'Pay Now' in email.
+    Creates a real Razorpay link and redirects to it.
+    """
+    submissions = load_user_submissions()
+    txn = next((t for t in submissions if t.get("transaction_id") == txn_id), None)
+    
+    if not txn:
+        return {"error": "Transaction not found"}
+    
+    razorpay_enabled = bool(os.getenv("RAZORPAY_KEY_ID")) and bool(os.getenv("RAZORPAY_KEY_SECRET"))
+    if not razorpay_enabled:
+        return {"error": "Razorpay not configured"}
+    
+    try:
+        from app.utils.razorpay_client import create_test_payment_link
+        link_id, short_url = create_test_payment_link(
+            customer_name=txn.get("customer_name", "Customer"),
+            amount=float(txn.get("amount", 0)),
+            description=f"Payment for order {txn_id}",
+        )
+        print(f"[pay] On-demand Razorpay link created for {txn_id}: {short_url}")
+        return RedirectResponse(url=short_url, status_code=302)
+    except Exception as e:
+        print(f"[pay] Failed to create link for {txn_id}: {e}")
+        return {"error": f"Failed to create payment link: {str(e)}"}
 
 
 @router.delete("/user-submissions")

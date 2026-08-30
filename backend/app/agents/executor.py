@@ -1,17 +1,15 @@
 """
 Executor: hybrid real + simulated recovery outcomes.
-- Abandoned carts get Razorpay links CREATED AT ABANDONMENT TIME (avoids batch rate limits).
-- Other transactions create links during batch execution.
-- Messaging actions send REAL emails via SendGrid with payment links inside.
+- Messaging actions send REAL emails via SendGrid with on-demand payment links.
+- On-demand links: emails contain /api/pay/{txn_id} which creates Razorpay link ONLY when clicked.
+- This avoids ALL batch-time and abandonment-time Razorpay rate limits.
 - Everything else is simulated.
 """
 import random
 import os
-import time
 from app.agents.state import RecoveryState
 from app.agents.policy_engine import record_bandit_outcome
 from app.agents.state import update_status
-from app.utils.razorpay_client import create_test_payment_link, should_create_real_link
 from app.utils.sendgrid_client import (
     send_cart_reminder_email,
     send_discount_code_email,
@@ -33,11 +31,13 @@ ACTION_SUCCESS_ODDS = {
     "do_not_touch": 0.0,
 }
 
+# Base URL for on-demand payment links
+BASE_URL = os.getenv("BASE_URL", "https://revenue-recovery-prototype.onrender.com")
 
-def _rank_by_value(transactions: list) -> dict:
-    """Return transaction_id -> rank (0 = highest value)."""
-    sorted_txns = sorted(transactions, key=lambda t: float(t.get("amount", 0)), reverse=True)
-    return {t["transaction_id"]: i for i, t in enumerate(sorted_txns)}
+
+def _get_on_demand_payment_url(txn_id: str) -> str:
+    """Generate an on-demand payment URL that creates Razorpay link when clicked."""
+    return f"{BASE_URL}/api/pay/{txn_id}"
 
 
 def execute_node(state: RecoveryState) -> RecoveryState:
@@ -48,13 +48,7 @@ def execute_node(state: RecoveryState) -> RecoveryState:
     results = []
     total = len(state["decisions"])
 
-    # Rank all transactions by value so we know which are "top"
-    value_ranks = _rank_by_value(state["transactions"])
-
-    # Check if real services are configured
-    razorpay_enabled = bool(os.getenv("RAZORPAY_KEY_ID")) and bool(os.getenv("RAZORPAY_KEY_SECRET"))
     sendgrid_enabled = bool(os.getenv("SENDGRID_API_KEY"))
-    real_links_created = 0
     emails_sent = 0
 
     for index, decision in enumerate(state["decisions"], start=1):
@@ -77,6 +71,9 @@ def execute_node(state: RecoveryState) -> RecoveryState:
         )
         amount_recovered = float(txn["amount"]) if success else 0.0
 
+        # On-demand payment URL: generates Razorpay link lazily when user clicks
+        payment_url = _get_on_demand_payment_url(txn["transaction_id"])
+
         result = {
             "transaction_id": txn["transaction_id"],
             "action_taken": action,
@@ -84,79 +81,16 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "amount_recovered": amount_recovered,
             "execution_mode": "simulated",
             "payment_link_id": None,
-            "payment_link_url": None,
+            "payment_link_url": payment_url,  # on-demand URL
             "razorpay_error": None,
             "email_sent": False,
             "email_error": None,
             "discount_code": None,
         }
 
-        # --- 1. Use pre-created Razorpay link if available (from abandon-cart endpoint) ---
-        precreated_url = txn.get("payment_link_url")
-        precreated_id = txn.get("payment_link_id")
-        
-        if precreated_url and precreated_id:
-            # Link was already created when the cart was abandoned
-            result["payment_link_id"] = precreated_id
-            result["payment_link_url"] = precreated_url
-            result["execution_mode"] = "real_razorpay_link"
-            real_links_created += 1
-            if txn.get("razorpay_error"):
-                result["razorpay_error"] = txn["razorpay_error"]
-        else:
-            # Only try creating a new link if abandon-cart didn't already fail with a rate limit.
-            # If it did fail, preserve that error and don't hammer the API again.
-            existing_error = txn.get("razorpay_error", "")
-            if existing_error and ("429" in existing_error or "cooldown" in existing_error or "rate limit" in existing_error):
-                result["execution_mode"] = "simulated (razorpay_rate_limited)"
-                result["razorpay_error"] = f"Skipped retry: {existing_error}"
-            else:
-                rank = value_ranks.get(txn["transaction_id"], 999)
-                eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
-
-                if razorpay_enabled and success and eligible_razorpay:
-                    try:
-                        link_id, short_url = create_test_payment_link(
-                            customer_name=txn["customer_name"],
-                            amount=float(txn["amount"]),
-                            description=f"Recovery for {txn.get('failure_reason', 'failed payment')}",
-                        )
-                        result["payment_link_id"] = link_id
-                        result["payment_link_url"] = short_url
-                        result["execution_mode"] = "real_razorpay_link"
-                        real_links_created += 1
-                        time.sleep(3)  # Delay to avoid Razorpay rate limits
-                    except Exception as e:
-                        error_msg = str(e)
-                        print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
-                        result["execution_mode"] = "simulated (razorpay_failed)"
-                        result["razorpay_error"] = error_msg
-            # Try to create a new Razorpay link for transactions without one (sample data, etc.)
-            rank = value_ranks.get(txn["transaction_id"], 999)
-            eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
-
-            if razorpay_enabled and success and eligible_razorpay:
-                try:
-                    link_id, short_url = create_test_payment_link(
-                        customer_name=txn["customer_name"],
-                        amount=float(txn["amount"]),
-                        description=f"Recovery for {txn.get('failure_reason', 'failed payment')}",
-                    )
-                    result["payment_link_id"] = link_id
-                    result["payment_link_url"] = short_url
-                    result["execution_mode"] = "real_razorpay_link"
-                    real_links_created += 1
-                    time.sleep(3)  # Delay to avoid Razorpay rate limits
-                except Exception as e:
-                    error_msg = str(e)
-                    print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
-                    result["execution_mode"] = "simulated (razorpay_failed)"
-                    result["razorpay_error"] = error_msg
-
-        # --- 2. Try SendGrid email for messaging actions (includes payment link if available) ---
+        # Try SendGrid email for messaging actions
         customer_email = txn.get("customer_email", "")
         items = txn.get("items", txn.get("failure_reason", ""))
-        payment_url = result.get("payment_link_url")  # may be None
 
         if sendgrid_enabled and customer_email and success:
             email_result = None
@@ -200,14 +134,10 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     result["email_error"] = email_result["error"]
                 if result["email_sent"]:
                     emails_sent += 1
-                    # Mark as real execution if email went out (even if Razorpay failed)
-                    if result["execution_mode"].startswith("simulated"):
-                        result["execution_mode"] = "real_email_sent"
-                    elif result["execution_mode"] == "real_razorpay_link":
-                        result["execution_mode"] = "real_link+email"
+                    result["execution_mode"] = "real_email_sent"
 
         results.append(result)
 
-    print(f"[execute] {real_links_created} Razorpay links, {emails_sent} emails sent")
+    print(f"[execute] {emails_sent} emails sent with on-demand payment links")
     state["results"] = results
     return state
