@@ -24,15 +24,6 @@ ACTION_SUCCESS_ODDS = {
     "escalate_human": 0.0,
     "do_not_touch": 0.0,
 }
-    "retry_now": 0.7,
-    "retry_immediately": 0.55,
-    "retry_in_3_days": 0.6,
-    "send_update_card_link": 0.4,
-    "notify_customer": 0.3,
-    "negotiate": 0.5,
-    "escalate_human": 0.0,
-    "do_not_touch": 0.0,
-}
 
 
 def _rank_by_value(transactions: list) -> dict:
