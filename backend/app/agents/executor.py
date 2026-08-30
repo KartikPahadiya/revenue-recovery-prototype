@@ -1,9 +1,9 @@
 """
 Executor: hybrid real + simulated recovery outcomes.
-- Top transactions get REAL Razorpay test-mode payment links.
+- Abandoned carts get Razorpay links CREATED AT ABANDONMENT TIME (avoids batch rate limits).
+- Other transactions create links during batch execution.
 - Messaging actions send REAL emails via SendGrid with payment links inside.
 - Everything else is simulated.
-- If any real service fails, gracefully falls back to simulation.
 """
 import random
 import os
@@ -91,28 +91,40 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "discount_code": None,
         }
 
-        # --- 1. Try Razorpay payment link for ALL eligible top-value transactions ---
-        rank = value_ranks.get(txn["transaction_id"], 999)
-        eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
+        # --- 1. Use pre-created Razorpay link if available (from abandon-cart endpoint) ---
+        precreated_url = txn.get("payment_link_url")
+        precreated_id = txn.get("payment_link_id")
+        
+        if precreated_url and precreated_id:
+            # Link was already created when the cart was abandoned
+            result["payment_link_id"] = precreated_id
+            result["payment_link_url"] = precreated_url
+            result["execution_mode"] = "real_razorpay_link"
+            real_links_created += 1
+            if txn.get("razorpay_error"):
+                result["razorpay_error"] = txn["razorpay_error"]
+        else:
+            # Try to create a new Razorpay link for transactions without one (sample data, etc.)
+            rank = value_ranks.get(txn["transaction_id"], 999)
+            eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
 
-        if razorpay_enabled and success and eligible_razorpay:
-            try:
-                link_id, short_url = create_test_payment_link(
-                    customer_name=txn["customer_name"],
-                    amount=float(txn["amount"]),
-                    description=f"Recovery for {txn.get('failure_reason', 'failed payment')}",
-                )
-                result["payment_link_id"] = link_id
-                result["payment_link_url"] = short_url
-                result["execution_mode"] = "real_razorpay_link"
-                real_links_created += 1
-                # Delay to avoid Razorpay rate limits between links
-                time.sleep(3)
-            except Exception as e:
-                error_msg = str(e)
-                print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
-                result["execution_mode"] = "simulated (razorpay_failed)"
-                result["razorpay_error"] = error_msg
+            if razorpay_enabled and success and eligible_razorpay:
+                try:
+                    link_id, short_url = create_test_payment_link(
+                        customer_name=txn["customer_name"],
+                        amount=float(txn["amount"]),
+                        description=f"Recovery for {txn.get('failure_reason', 'failed payment')}",
+                    )
+                    result["payment_link_id"] = link_id
+                    result["payment_link_url"] = short_url
+                    result["execution_mode"] = "real_razorpay_link"
+                    real_links_created += 1
+                    time.sleep(3)  # Delay to avoid Razorpay rate limits
+                except Exception as e:
+                    error_msg = str(e)
+                    print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
+                    result["execution_mode"] = "simulated (razorpay_failed)"
+                    result["razorpay_error"] = error_msg
 
         # --- 2. Try SendGrid email for messaging actions (includes payment link if available) ---
         customer_email = txn.get("customer_email", "")

@@ -78,7 +78,30 @@ def submit_transaction(payload: TransactionSubmission):
 
 @router.post("/abandon-cart")
 def abandon_cart(payload: CartAbandonment):
-    """Simulate a user abandoning their shopping cart on the demo store."""
+    """Simulate a user abandoning their shopping cart on the demo store.
+    Creates a Razorpay payment link immediately to avoid batch-time rate limits."""
+    
+    # Try to create a Razorpay payment link right away (spaced out by user interaction)
+    razorpay_link_id = None
+    razorpay_short_url = None
+    razorpay_error = None
+    
+    razorpay_enabled = bool(os.getenv("RAZORPAY_KEY_ID")) and bool(os.getenv("RAZORPAY_KEY_SECRET"))
+    if razorpay_enabled and payload.cart_value >= 1000:
+        try:
+            from app.utils.razorpay_client import create_test_payment_link
+            link_id, short_url = create_test_payment_link(
+                customer_name=payload.customer_name,
+                amount=float(payload.cart_value),
+                description=f"Cart recovery for {payload.customer_name}",
+            )
+            razorpay_link_id = link_id
+            razorpay_short_url = short_url
+            print(f"[abandon-cart] Razorpay link created: {short_url}")
+        except Exception as e:
+            razorpay_error = str(e)
+            print(f"[abandon-cart] Razorpay link failed: {e}")
+    
     txn = {
         "leak_type": "checkout_abandonment",
         "transaction_id": f"CART{uuid.uuid4().hex[:6].upper()}",
@@ -90,10 +113,18 @@ def abandon_cart(payload: CartAbandonment):
         "items": payload.items,
         "retry_count": 0,
         "timestamp": datetime.utcnow().isoformat(),
+        "payment_link_id": razorpay_link_id,
+        "payment_link_url": razorpay_short_url,
+        "razorpay_error": razorpay_error,
     }
     save_user_submission(txn)
     print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart ({payload.reason}): {txn['transaction_id']}")
-    return {"status": "ok", "transaction_id": txn["transaction_id"]}
+    return {
+        "status": "ok",
+        "transaction_id": txn["transaction_id"],
+        "payment_link_created": razorpay_link_id is not None,
+        "payment_link_url": razorpay_short_url,
+    }
 
 
 @router.delete("/user-submissions")
@@ -131,7 +162,7 @@ def run_batch(limit: int | None = None, source: str = "sample"):
                 "recovery_rate": 0,
                 "escalated_count": 0,
                 "halted": True,
-                "halt_reason": "No user-submitted transactions yet. Scan the QR code to add some first.",
+                "halt_reason": "No user-submitted transactions yet. Add some from the store first.",
                 "audit_trail": [],
                 "source": "user",
             }
