@@ -10,23 +10,21 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [source, setSource] = useState('sample') // 'sample' | 'user'
+  const [source, setSource] = useState('sample')
   const [submissionsCount, setSubmissionsCount] = useState(0)
   const path = window.location.pathname
   const isSubmitPage = path === '/submit'
-  const isStorePage = path === '/store'
+  const isDashboard = path === '/dashboard'
 
   const refreshCount = async () => {
     try {
       const data = await getSubmissionsCount()
       setSubmissionsCount(data.count)
-    } catch {
-      // non-critical, ignore
-    }
+    } catch {}
   }
 
   useEffect(() => {
-    if (!isSubmitPage && !isStorePage) {
+    if (isDashboard) {
       refreshCount()
       const interval = setInterval(refreshCount, 5000)
       return () => clearInterval(interval)
@@ -40,12 +38,7 @@ export default function App() {
       const data = await runBatch(source)
       setResult(data)
     } catch (err) {
-      console.error('run-batch failed:', err)
-      setError(
-        err.message === 'timeout'
-          ? 'Request timed out. Check the backend terminal for a [run-batch] log line.'
-          : `Could not reach backend: ${err.message}.`
-      )
+      setError(err.message === 'timeout' ? 'Request timed out.' : `Backend error: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -57,54 +50,39 @@ export default function App() {
     setResult(null)
   }
 
-  if (isSubmitPage) {
-    return <SubmitForm />
-  }
-
-  if (isStorePage) {
-    return <AbandonedCartDemo />
-  }
-
-  return (
-    <div className="app">
-      <header>
-        <h1>AI Revenue Recovery Agent</h1>
-        <div className="header-right">
-          <a href="/store" className="store-link">🛒 Demo Store</a>
-          <QrPanel />
-        </div>
-      </header>
-
-      <div className="source-toggle-row">
-        <button
-          className={`source-btn ${source === 'sample' ? 'active' : ''}`}
-          onClick={() => setSource('sample')}
-        >
-          Sample Data (415)
-        </button>
-        <button
-          className={`source-btn ${source === 'user' ? 'active' : ''}`}
-          onClick={() => setSource('user')}
-        >
-          Submitted Data ({submissionsCount})
-        </button>
-        {source === 'user' && submissionsCount > 0 && (
-          <button className="clear-btn" onClick={handleClearSubmissions}>
-            Clear submissions
+  if (isSubmitPage) return <SubmitForm />
+  if (isDashboard) {
+    return (
+      <div className="app">
+        <header>
+          <h1>AI Revenue Recovery Agent</h1>
+          <div className="header-right">
+            <a href="/" className="store-link">🛒 Back to Store</a>
+            <QrPanel />
+          </div>
+        </header>
+        <div className="source-toggle-row">
+          <button className={`source-btn ${source === 'sample' ? 'active' : ''}`} onClick={() => setSource('sample')}>
+            Sample Data (415)
           </button>
-        )}
-        <button className="run-btn" onClick={handleRun} disabled={loading}>
-          {loading ? 'Running recovery batch...' : `Run on ${source === 'sample' ? 'Sample' : 'Submitted'} Data`}
-        </button>
+          <button className={`source-btn ${source === 'user' ? 'active' : ''}`} onClick={() => setSource('user')}>
+            Submitted Data ({submissionsCount})
+          </button>
+          {source === 'user' && submissionsCount > 0 && (
+            <button className="clear-btn" onClick={handleClearSubmissions}>Clear submissions</button>
+          )}
+          <button className="run-btn" onClick={handleRun} disabled={loading}>
+            {loading ? 'Running...' : `Run on ${source === 'sample' ? 'Sample' : 'Submitted'} Data`}
+          </button>
+        </div>
+        <PipelineTracker active={loading} />
+        {error && <div className="halt-banner">⚠ {error}</div>}
+        {result?.halted && <div className="halt-banner">⚠ Halted: {result.halt_reason}</div>}
+        {result && !result.halted && <Dashboard result={result} />}
       </div>
-      <PipelineTracker active={loading} />
-      {error && <div className="halt-banner">⚠ {error}</div>}
+    )
+  }
 
-      {result?.halted && (
-        <div className="halt-banner">⚠ Pipeline halted: {result.halt_reason}</div>
-      )}
-
-      {result && !result.halted && <Dashboard result={result} />}
-    </div>
-  )
+  // Default: show the store
+  return <AbandonedCartDemo />
 }

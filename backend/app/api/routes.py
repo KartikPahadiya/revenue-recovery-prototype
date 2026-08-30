@@ -29,6 +29,7 @@ class CartAbandonment(BaseModel):
     customer_email: str
     items: str
     cart_value: float
+    reason: str = "just_browsing"
 
 
 def load_base_transactions():
@@ -85,13 +86,13 @@ def abandon_cart(payload: CartAbandonment):
         "customer_email": payload.customer_email,
         "amount": payload.cart_value,
         "payment_method": "online",
-        "failure_reason": f"abandoned_cart: {payload.items}",
+        "failure_reason": f"abandoned_cart ({payload.reason}): {payload.items}",
         "items": payload.items,
         "retry_count": 0,
         "timestamp": datetime.utcnow().isoformat(),
     }
     save_user_submission(txn)
-    print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart: {txn['transaction_id']}")
+    print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart ({payload.reason}): {txn['transaction_id']}")
     return {"status": "ok", "transaction_id": txn["transaction_id"]}
 
 

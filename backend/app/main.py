@@ -32,9 +32,17 @@ index_html = os.path.join(FRONTEND_DIST, "index.html")
 has_frontend = os.path.isfile(index_html)
 
 if has_frontend:
-    # SPA client-side route: /submit must return index.html so React Router handles it
+    # SPA client-side routes: must return index.html so React Router handles them
     @app.get("/submit")
     async def serve_submit():
+        return FileResponse(index_html)
+
+    @app.get("/dashboard")
+    async def serve_dashboard():
+        return FileResponse(index_html)
+
+    @app.get("/store")
+    async def serve_store():
         return FileResponse(index_html)
 
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

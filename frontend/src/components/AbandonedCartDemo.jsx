@@ -1,6 +1,5 @@
 import { useState } from 'react'
 
-// 12 dummy grocery items — Blinkit-style
 const PRODUCTS = [
   { id: 1, name: 'Amul Butter 500g', price: 275, emoji: '🧈' },
   { id: 2, name: 'Britannia Bread', price: 45, emoji: '🍞' },
@@ -16,10 +15,20 @@ const PRODUCTS = [
   { id: 12, name: 'Basmati Rice 5kg', price: 450, emoji: '🍚' },
 ]
 
+const ABANDON_REASONS = [
+  { value: 'price_hesitation', label: '💰 Price too high / Hesitating' },
+  { value: 'just_browsing', label: '👀 Just browsing / Not ready to buy' },
+  { value: 'payment_issue', label: '💳 Payment method not available' },
+  { value: 'distraction', label: '📱 Got distracted / Interrupted' },
+  { value: 'shipping_cost', label: '🚚 Shipping cost too high' },
+  { value: 'found_better', label: '🔍 Found better price elsewhere' },
+]
+
 export default function AbandonedCartDemo() {
   const [cart, setCart] = useState([])
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
+  const [reason, setReason] = useState('')
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -51,6 +60,10 @@ export default function AbandonedCartDemo() {
       setStatus({ error: 'Enter your name first.' })
       return
     }
+    if (!reason) {
+      setStatus({ error: 'Please select a reason for leaving.' })
+      return
+    }
 
     setLoading(true)
     setStatus(null)
@@ -64,13 +77,15 @@ export default function AbandonedCartDemo() {
           customer_email: customerEmail || `${customerName.toLowerCase().replace(/\s/g, '')}@demo.com`,
           items: cartItemsText,
           cart_value: cartTotal,
+          reason: reason,
         }),
       })
       const data = await res.json()
       if (data.status === 'ok') {
         setStatus({
           success: true,
-          message: `Cart abandoned! Transaction ID: ${data.transaction_id}. Go back to the dashboard and click "Submitted Data" → "Run" to see the AI recover it.`,
+          message: `Cart abandoned! The AI agent will now work on recovering it.`,
+          txnId: data.transaction_id,
         })
         setCart([])
       } else {
@@ -88,8 +103,9 @@ export default function AbandonedCartDemo() {
       <header className="cart-header">
         <h1>🛒 FreshKart — Demo Store</h1>
         <p className="cart-subtitle">
-          Browse items, add to cart, then <strong>abandon it</strong> to trigger the AI recovery agent.
+          Add items to cart, then <strong>abandon it with a reason</strong> to trigger the AI recovery agent.
         </p>
+        <a href="/dashboard" className="dashboard-link">📊 Go to Recovery Dashboard</a>
       </header>
 
       <div className="cart-layout">
@@ -99,9 +115,7 @@ export default function AbandonedCartDemo() {
               <div className="product-emoji">{product.emoji}</div>
               <div className="product-name">{product.name}</div>
               <div className="product-price">₹{product.price}</div>
-              <button className="add-btn" onClick={() => addToCart(product)}>
-                + Add
-              </button>
+              <button className="add-btn" onClick={() => addToCart(product)}>+ Add</button>
             </div>
           ))}
         </div>
@@ -116,14 +130,10 @@ export default function AbandonedCartDemo() {
                 <div key={item.id} className="cart-item">
                   <span>{item.emoji} {item.name} x{item.qty}</span>
                   <span>₹{item.price * item.qty}</span>
-                  <button className="remove-btn" onClick={() => removeFromCart(item.id)}>
-                    ×
-                  </button>
+                  <button className="remove-btn" onClick={() => removeFromCart(item.id)}>×</button>
                 </div>
               ))}
-              <div className="cart-total">
-                <strong>Total: ₹{cartTotal}</strong>
-              </div>
+              <div className="cart-total"><strong>Total: ₹{cartTotal}</strong></div>
             </>
           )}
 
@@ -140,26 +150,30 @@ export default function AbandonedCartDemo() {
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
             />
+            <select value={reason} onChange={(e) => setReason(e.target.value)}>
+              <option value="">Why are you leaving? *</option>
+              {ABANDON_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
           </div>
 
-          <button
-            className="abandon-btn"
-            onClick={abandonCart}
-            disabled={loading || cart.length === 0}
-          >
+          <button className="abandon-btn" onClick={abandonCart} disabled={loading || cart.length === 0}>
             {loading ? 'Abandoning...' : '💨 Abandon Cart (Trigger AI)'}
           </button>
 
           {status?.success && (
             <div className="status-success">
               ✅ {status.message}
-              <br />
-              <a href="/" className="back-link">← Go to Dashboard</a>
+              <div style={{ fontSize: '12px', color: '#a89f92', marginTop: 6 }}>
+                Transaction ID: {status.txnId}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <a href="/dashboard" className="back-link">→ See AI Recovery in Action</a>
+              </div>
             </div>
           )}
-          {status?.error && (
-            <div className="status-error">⚠ {status.error}</div>
-          )}
+          {status?.error && <div className="status-error">⚠ {status.error}</div>}
         </div>
       </div>
     </div>
