@@ -15,6 +15,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PORT=7860
 
 COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir setuptools && pip install --no-cache-dir -r backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend ./backend

@@ -4,7 +4,6 @@ Only creates REAL payment links for the top-N highest-value transactions.
 Everything else falls back to simulated outcomes gracefully.
 """
 import os
-from app import config
 
 # Lazy init — only created when first needed
 _razorpay_client = None
@@ -71,11 +70,3 @@ def should_create_real_link(txn: dict, rank: int) -> bool:
         return False
     action = txn.get("action_taken", "")
     return action in ("retry_now", "notify_customer", "send_discount_code", "send_cart_reminder")
-    """
-    Only create real links for the top-N highest-value transactions
-    where the action is 'retry_now' or 'notify_customer'.
-    """
-    if rank >= MAX_REAL_PAYMENT_LINKS_PER_BATCH:
-        return False
-    action = txn.get("action_taken", "")
-    return action in ("retry_now", "notify_customer")
