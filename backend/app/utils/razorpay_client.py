@@ -55,3 +55,16 @@ def create_test_payment_link(customer_name: str, amount: float, description: str
     link_id = data.get("id")
     short_url = data.get("short_url")
     return link_id, short_url
+
+
+MAX_REAL_PAYMENT_LINKS_PER_BATCH = 1
+
+
+def should_create_real_link(txn: dict, rank: int) -> bool:
+    """
+    Create real Razorpay links for the top-N highest-value transactions.
+    """
+    if rank >= MAX_REAL_PAYMENT_LINKS_PER_BATCH:
+        return False
+    action = txn.get("action_taken", "")
+    return action in ("retry_now", "notify_customer", "send_discount_code", "send_cart_reminder")
