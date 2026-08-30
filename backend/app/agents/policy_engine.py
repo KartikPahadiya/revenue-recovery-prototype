@@ -57,6 +57,16 @@ def decide_node(state: RecoveryState) -> RecoveryState:
             action, rule = "notify_customer", "Rule: customer-side issues need customer action, not a retry"
         elif leak_type == "failed_payment" and category == "temporary_issue":
             action, rule = "retry_now", "Rule: temporary/transient failures are safe to auto-retry"
+        elif leak_type == "checkout_abandonment":
+            follow_ups = int(txn.get("follow_up_count", 0) or 0)
+            if follow_ups >= 3:
+                action, rule = "do_not_touch", "Rule: max 3 recovery nudges per abandoned cart, then stop"
+            elif float(txn["amount"]) > 1000:
+                action, rule = "send_discount_code", "Rule: high-value abandoned cart (>₹1000) gets discount offer"
+            elif float(txn["amount"]) > 300:
+                action, rule = "send_cart_reminder", "Rule: medium-value cart gets personalized reminder"
+            else:
+                action, rule = "send_product_recommendation", "Rule: low-value cart gets product recommendation only"
         elif leak_type == "failed_subscription":
             strategy = pick_subscription_strategy()
             action, rule = strategy, "Bandit: exploring/exploiting best-known dunning strategy"

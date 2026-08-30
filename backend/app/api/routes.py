@@ -24,6 +24,21 @@ class TransactionSubmission(BaseModel):
     leak_type: str = "failed_payment"
 
 
+class CartAbandonment(BaseModel):
+    customer_name: str
+    customer_email: str
+    items: str
+    cart_value: float
+
+
+def load_base_transactions():
+    customer_name: str
+    amount: float
+    payment_method: str
+    failure_reason: str
+    leak_type: str = "failed_payment"
+
+
 def load_base_transactions():
     with open(BASE_DATA_PATH, newline="") as f:
         return list(csv.DictReader(f))
@@ -64,6 +79,31 @@ def submit_transaction(payload: TransactionSubmission):
         "timestamp": datetime.utcnow().isoformat(),
     }
     save_user_submission(txn)
+    print(f"[submit] new transaction from {payload.customer_name}: {txn['transaction_id']}")
+    return {"status": "ok", "transaction_id": txn["transaction_id"]}
+
+
+@router.post("/abandon-cart")
+def abandon_cart(payload: CartAbandonment):
+    """Simulate a user abandoning their shopping cart on the demo store."""
+    txn = {
+        "leak_type": "checkout_abandonment",
+        "transaction_id": f"CART{uuid.uuid4().hex[:6].upper()}",
+        "customer_name": payload.customer_name,
+        "customer_email": payload.customer_email,
+        "amount": payload.cart_value,
+        "payment_method": "online",
+        "failure_reason": f"abandoned_cart: {payload.items}",
+        "items": payload.items,
+        "retry_count": 0,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    save_user_submission(txn)
+    print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart: {txn['transaction_id']}")
+    return {"status": "ok", "transaction_id": txn["transaction_id"]}
+
+
+@router.delete("/user-submissions")
     print(f"[submit] new transaction from {payload.customer_name}: {txn['transaction_id']}")
     return {"status": "ok", "transaction_id": txn["transaction_id"]}
 
