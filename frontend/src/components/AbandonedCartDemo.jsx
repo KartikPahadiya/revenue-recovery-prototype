@@ -15,6 +15,28 @@ const PRODUCTS = [
   { id: 12, name: 'Basmati Rice 5kg', price: 450, emoji: '🍚' },
 ]
 
+const TXN_TYPES = [
+  { value: 'checkout_abandonment', label: '🛒 Checkout abandonment' },
+  { value: 'failed_payment', label: '💳 Failed payment' },
+  { value: 'failed_subscription', label: '🔄 Failed subscription' },
+  { value: 'overdue_invoice', label: '📄 Overdue invoice' },
+]
+
+const PAYMENT_METHODS = [
+  { value: 'card', label: '💳 Card' },
+  { value: 'netbanking', label: '🏦 Netbanking' },
+  { value: 'upi', label: '📱 UPI' },
+  { value: 'wallet', label: '👛 Wallet' },
+]
+
+const FAILURE_REASONS = [
+  { value: 'insufficient_funds', label: '💸 Insufficient funds' },
+  { value: 'card_expired', label: '🚫 Card expired' },
+  { value: 'bank_server_down', label: '🏦 Bank server down' },
+  { value: 'otp_timeout', label: '⏱️ OTP timeout' },
+  { value: 'mandate_expired', label: '📋 Mandate expired' },
+]
+
 const ABANDON_REASONS = [
   { value: 'price_hesitation', label: '💰 Price too high / Hesitating' },
   { value: 'just_browsing', label: '👀 Just browsing / Not ready to buy' },
@@ -28,9 +50,14 @@ export default function AbandonedCartDemo() {
   const [cart, setCart] = useState([])
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [reason, setReason] = useState('')
+  const [txnType, setTxnType] = useState('checkout_abandonment')
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [failureReason, setFailureReason] = useState('')
+  const [abandonReason, setAbandonReason] = useState('')
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
+
+  const isCheckout = txnType === 'checkout_abandonment'
 
   const addToCart = (product) => {
     setCart((prev) => {
@@ -51,7 +78,7 @@ export default function AbandonedCartDemo() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0)
   const cartItemsText = cart.map((item) => `${item.name} x${item.qty}`).join(', ')
 
-  const abandonCart = async () => {
+  const submit = async () => {
     if (cart.length === 0) {
       setStatus({ error: 'Cart is empty. Add some items first!' })
       return
@@ -64,8 +91,16 @@ export default function AbandonedCartDemo() {
       setStatus({ error: 'Enter a valid email address.' })
       return
     }
-    if (!reason) {
+    if (isCheckout && !abandonReason) {
       setStatus({ error: 'Please select a reason for leaving.' })
+      return
+    }
+    if (!isCheckout && !paymentMethod) {
+      setStatus({ error: 'Please select a payment method.' })
+      return
+    }
+    if (!isCheckout && !failureReason) {
+      setStatus({ error: 'Please select a failure reason.' })
       return
     }
 
@@ -73,22 +108,39 @@ export default function AbandonedCartDemo() {
     setStatus(null)
 
     try {
-      const res = await fetch('/api/abandon-cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name: customerName,
-          customer_email: customerEmail,
-          items: cartItemsText,
-          cart_value: cartTotal,
-          reason: reason,
-        }),
-      })
-      const data = await res.json()
+      let res, data
+      if (isCheckout) {
+        res = await fetch('/api/abandon-cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_name: customerName,
+            customer_email: customerEmail,
+            items: cartItemsText,
+            cart_value: cartTotal,
+            reason: abandonReason,
+          }),
+        })
+      } else {
+        res = await fetch('/api/submit-transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_name: customerName,
+            amount: cartTotal,
+            payment_method: paymentMethod,
+            failure_reason: failureReason,
+            leak_type: txnType,
+          }),
+        })
+      }
+      data = await res.json()
       if (data.status === 'ok') {
         setStatus({
           success: true,
-          message: `Cart abandoned! The AI agent will now work on recovering it.`,
+          message: isCheckout
+            ? `Cart abandoned! The AI agent will now work on recovering it.`
+            : `${txnType.replace('_', ' ')} recorded! The AI agent will now work on recovering it.`,
           txnId: data.transaction_id,
         })
         setCart([])
@@ -107,7 +159,7 @@ export default function AbandonedCartDemo() {
       <header className="cart-header">
         <h1>🛒 FreshKart — Demo Store</h1>
         <p className="cart-subtitle">
-          Add items to cart, then <strong>abandon it with a reason</strong> to trigger the AI recovery agent.
+          Add items to cart, then <strong>submit a scenario</strong> to trigger the AI recovery agent.
         </p>
         <a href="/dashboard" className="dashboard-link">📊 Go to Recovery Dashboard</a>
       </header>
@@ -154,16 +206,41 @@ export default function AbandonedCartDemo() {
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
             />
-            <select value={reason} onChange={(e) => setReason(e.target.value)}>
-              <option value="">Why are you leaving? *</option>
-              {ABANDON_REASONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
+
+            <select value={txnType} onChange={(e) => setTxnType(e.target.value)}>
+              <option value="">Transaction type *</option>
+              {TXN_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
+
+            {isCheckout ? (
+              <select value={abandonReason} onChange={(e) => setAbandonReason(e.target.value)}>
+                <option value="">Why are you leaving? *</option>
+                {ABANDON_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                  <option value="">Payment method *</option>
+                  {PAYMENT_METHODS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                <select value={failureReason} onChange={(e) => setFailureReason(e.target.value)}>
+                  <option value="">Failure reason *</option>
+                  {FAILURE_REASONS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
 
-          <button className="abandon-btn" onClick={abandonCart} disabled={loading || cart.length === 0}>
-            {loading ? 'Abandoning...' : '💨 Abandon Cart (Trigger AI)'}
+          <button className="abandon-btn" onClick={submit} disabled={loading || cart.length === 0}>
+            {loading ? 'Submitting...' : isCheckout ? '💨 Abandon Cart (Trigger AI)' : '⚡ Submit Scenario (Trigger AI)'}
           </button>
 
           {status?.success && (
