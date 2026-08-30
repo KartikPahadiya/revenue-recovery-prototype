@@ -1,34 +1,33 @@
 """
-Razorpay test-mode client with rate-limit safety.
-Only creates REAL payment links for the top-N highest-value transactions.
-Everything else falls back to simulated outcomes gracefully.
+Razorpay test-mode client using direct HTTP requests.
+Avoids the razorpay SDK's pkg_resources dependency which breaks in python:3.12-slim.
 """
 import os
+import base64
+import requests
 
-# Lazy init — only created when first needed
-_razorpay_client = None
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_BASE_URL = "https://api.razorpay.com/v1"
 
-def _get_client():
-    global _razorpay_client
-    if _razorpay_client is None:
-        # Lazy import to avoid startup crash if setuptools/pkg_resources is missing
-        import razorpay
-        key_id = os.getenv("RAZORPAY_KEY_ID", "")
-        key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
-        if not key_id or not key_secret:
-            raise RuntimeError("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET not set")
-        _razorpay_client = razorpay.Client(auth=(key_id, key_secret))
-    return _razorpay_client
+
+def _get_auth_headers():
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        raise RuntimeError("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET not set")
+    credentials = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
+    return {
+        "Authorization": f"Basic {credentials}",
+        "Content-Type": "application/json",
+    }
 
 
 def create_test_payment_link(customer_name: str, amount: float, description: str = "Payment recovery"):
     """
-    Create a Razorpay test-mode payment link.
+    Create a Razorpay test-mode payment link via direct HTTP POST.
     Amount in INR paise (amount * 100).
     Returns (link_id, short_url) or raises on failure.
     """
-    client = _get_client()
-    # Razorpay amount is in paise
+    headers = _get_auth_headers()
     amount_paise = int(amount * 100)
 
     payload = {
@@ -36,13 +35,8 @@ def create_test_payment_link(customer_name: str, amount: float, description: str
         "currency": "INR",
         "accept_partial": False,
         "description": description,
-        "customer": {
-            "name": customer_name,
-        },
-        "notify": {
-            "sms": False,
-            "email": False,
-        },
+        "customer": {"name": customer_name},
+        "notify": {"sms": False, "email": False},
         "reminder_enable": False,
         "notes": {
             "source": "ai_revenue_recovery_agent",
@@ -50,14 +44,20 @@ def create_test_payment_link(customer_name: str, amount: float, description: str
         },
     }
 
-    response = client.payment_link.create(data=payload)
-    link_id = response.get("id")
-    short_url = response.get("short_url")
+    response = requests.post(
+        f"{RAZORPAY_BASE_URL}/payment_links/",
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+    response.raise_for_status()
+    data = response.json()
+    link_id = data.get("id")
+    short_url = data.get("short_url")
     return link_id, short_url
 
 
 # Cap on how many real payment links we create per batch
-# Razorpay test mode has ~100 req/min but we stay far below that
 MAX_REAL_PAYMENT_LINKS_PER_BATCH = 5
 
 
