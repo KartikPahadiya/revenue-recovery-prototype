@@ -32,14 +32,6 @@ class CartAbandonment(BaseModel):
 
 
 def load_base_transactions():
-    customer_name: str
-    amount: float
-    payment_method: str
-    failure_reason: str
-    leak_type: str = "failed_payment"
-
-
-def load_base_transactions():
     with open(BASE_DATA_PATH, newline="") as f:
         return list(csv.DictReader(f))
 
@@ -100,11 +92,6 @@ def abandon_cart(payload: CartAbandonment):
     }
     save_user_submission(txn)
     print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart: {txn['transaction_id']}")
-    return {"status": "ok", "transaction_id": txn["transaction_id"]}
-
-
-@router.delete("/user-submissions")
-    print(f"[submit] new transaction from {payload.customer_name}: {txn['transaction_id']}")
     return {"status": "ok", "transaction_id": txn["transaction_id"]}
 
 
