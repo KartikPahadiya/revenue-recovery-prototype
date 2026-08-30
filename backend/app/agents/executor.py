@@ -1,9 +1,9 @@
 """
 Executor: hybrid real + simulated recovery outcomes.
-- Messaging actions send REAL emails via SendGrid with on-demand payment links.
-- On-demand links: emails contain /api/pay/{txn_id} which creates Razorpay link ONLY when clicked.
-- This avoids ALL batch-time and abandonment-time Razorpay rate limits.
-- Everything else is simulated.
+- User-submitted transactions (from demo store) with email addresses get REAL SendGrid emails
+  with on-demand payment links (/api/pay/{txn_id} creates Razorpay link lazily when clicked).
+- Sample/built-in data is ALWAYS purely simulated — no real emails, no real links.
+- On-demand links avoid ALL batch-time and abandonment-time Razorpay rate limits.
 """
 import random
 import os
@@ -71,8 +71,12 @@ def execute_node(state: RecoveryState) -> RecoveryState:
         )
         amount_recovered = float(txn["amount"]) if success else 0.0
 
-        # On-demand payment URL: generates Razorpay link lazily when user clicks
-        payment_url = _get_on_demand_payment_url(txn["transaction_id"])
+        # Determine if this is a user-submitted transaction (has email = real services)
+        customer_email = txn.get("customer_email", "")
+        is_user_submission = bool(customer_email)
+
+        # On-demand payment URL only for user submissions
+        payment_url = _get_on_demand_payment_url(txn["transaction_id"]) if is_user_submission else None
 
         result = {
             "transaction_id": txn["transaction_id"],
@@ -81,65 +85,16 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "amount_recovered": amount_recovered,
             "execution_mode": "simulated",
             "payment_link_id": None,
-            "payment_link_url": payment_url,  # on-demand URL
+            "payment_link_url": payment_url,
             "razorpay_error": None,
             "email_sent": False,
             "email_error": None,
             "discount_code": None,
         }
 
-        # Try SendGrid email for messaging actions — ALWAYS send for demo,
-        # but the simulated success flag determines the outcome metric.
-        customer_email = txn.get("customer_email", "")
-        items = txn.get("items", txn.get("failure_reason", ""))
-
-        if sendgrid_enabled and customer_email:
-            email_result = None
-            if action == "send_cart_reminder":
-                email_result = send_cart_reminder_email(
-                    customer_name=txn["customer_name"],
-                    customer_email=customer_email,
-                    items=items,
-                    cart_value=float(txn["amount"]),
-                    payment_url=payment_url,
-                )
-            elif action == "send_discount_code":
-                email_result = send_discount_code_email(
-                    customer_name=txn["customer_name"],
-                    customer_email=customer_email,
-                    items=items,
-                    cart_value=float(txn["amount"]),
-                    payment_url=payment_url,
-                )
-                if email_result.get("discount_code"):
-                    result["discount_code"] = email_result["discount_code"]
-            elif action == "send_product_recommendation":
-                email_result = send_product_recommendation_email(
-                    customer_name=txn["customer_name"],
-                    customer_email=customer_email,
-                    items=items,
-                    payment_url=payment_url,
-                )
-            elif action == "notify_customer":
-                email_result = send_payment_notification_email(
-                    customer_name=txn["customer_name"],
-                    customer_email=customer_email,
-                    failure_reason=txn.get("failure_reason", "payment issue"),
-                    amount=float(txn["amount"]),
-                    payment_url=payment_url,
-                )
-
-            if email_result:
-                result["email_sent"] = email_result.get("sent", False)
-                if email_result.get("error"):
-                    result["email_error"] = email_result["error"]
-                if result["email_sent"]:
-                    emails_sent += 1
-                    result["execution_mode"] = "real_email_sent"
-        customer_email = txn.get("customer_email", "")
-        items = txn.get("items", txn.get("failure_reason", ""))
-
-        if sendgrid_enabled and customer_email and success:
+        # Send REAL email only for user-submitted transactions (sample data stays simulated)
+        if is_user_submission and sendgrid_enabled:
+            items = txn.get("items", txn.get("failure_reason", ""))
             email_result = None
             if action == "send_cart_reminder":
                 email_result = send_cart_reminder_email(
@@ -185,6 +140,6 @@ def execute_node(state: RecoveryState) -> RecoveryState:
 
         results.append(result)
 
-    print(f"[execute] {emails_sent} emails sent with on-demand payment links")
+    print(f"[execute] {emails_sent} real emails sent (user submissions only)")
     state["results"] = results
     return state
