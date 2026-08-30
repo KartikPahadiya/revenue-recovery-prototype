@@ -4,19 +4,22 @@ export default function AuditTrail({ auditTrail }) {
     <div className="audit-card">
       <h3>Audit Trail (why each action was taken)</h3>
       {auditTrail.slice(0, 20).map((entry) => {
-        const isReal = entry.result?.execution_mode === 'real_razorpay_link'
-        const hasError = entry.result?.razorpay_error
+        const isRealLink = entry.result?.execution_mode === 'real_razorpay_link'
+        const isRealEmail = entry.result?.execution_mode === 'real_email_sent'
+        const hasError = entry.result?.razorpay_error || entry.result?.email_error
         return (
           <details key={entry.transaction_id}>
             <summary>
-              {isReal && <span className="badge real" style={{ marginRight: 8 }}>🟢 REAL</span>}
+              {isRealLink && <span className="badge real" style={{ marginRight: 8 }}>🟢 REAL LINK</span>}
+              {isRealEmail && <span className="badge real" style={{ marginRight: 8 }}>📧 EMAIL SENT</span>}
               {entry.transaction_id} → {entry.decision?.action} ({entry.result?.outcome})
             </summary>
             <p><strong>Diagnosis:</strong> {entry.diagnosis?.category} — {entry.diagnosis?.explanation}</p>
             <p><strong>Rule applied:</strong> {entry.decision?.rule_applied}</p>
             <p><strong>Priority score:</strong> {entry.decision?.priority_score}</p>
             <p><strong>Execution mode:</strong> {entry.result?.execution_mode || 'simulated'}</p>
-            {isReal && entry.result?.payment_link_url && (
+            
+            {isRealLink && entry.result?.payment_link_url && (
               <p style={{ background: '#1a3a1a', padding: '10px', borderRadius: '6px', marginTop: '8px' }}>
                 <strong>✅ Real Razorpay Payment Link Created:</strong><br />
                 <a href={entry.result.payment_link_url} target="_blank" rel="noreferrer" style={{ color: '#4ade80', fontWeight: 600 }}>
@@ -28,9 +31,22 @@ export default function AuditTrail({ auditTrail }) {
                 </span>
               </p>
             )}
+            
+            {isRealEmail && (
+              <p style={{ background: '#1a2a3a', padding: '10px', borderRadius: '6px', marginTop: '8px' }}>
+                <strong>📧 Real Email Sent:</strong>
+                {entry.result?.discount_code && (
+                  <div style={{ marginTop: '6px', fontSize: '14px' }}>
+                    Discount Code: <strong style={{ color: '#4ade80' }}>{entry.result.discount_code}</strong>
+                  </div>
+                )}
+              </p>
+            )}
+            
             {hasError && (
               <p style={{ color: '#f87171', fontSize: '12px' }}>
-                Razorpay error: {hasError}
+                {entry.result?.razorpay_error && <>Razorpay: {entry.result.razorpay_error}<br /></>}
+                {entry.result?.email_error && <>Email: {entry.result.email_error}</>}
               </p>
             )}
           </details>

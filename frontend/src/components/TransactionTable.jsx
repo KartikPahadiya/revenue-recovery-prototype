@@ -10,7 +10,9 @@ export default function TransactionTable({ auditTrail }) {
         </thead>
         <tbody>
           {auditTrail.map((entry) => {
-            const isReal = entry.result?.execution_mode === 'real_razorpay_link'
+            const mode = entry.result?.execution_mode || 'simulated'
+            const isRealLink = mode === 'real_razorpay_link'
+            const isRealEmail = mode === 'real_email_sent'
             return (
               <tr key={entry.transaction_id}>
                 <td>{entry.transaction_id}</td>
@@ -21,8 +23,10 @@ export default function TransactionTable({ auditTrail }) {
                 </td>
                 <td>₹{entry.result?.amount_recovered?.toLocaleString() || 0}</td>
                 <td>
-                  {isReal ? (
-                    <span className="badge real">🟢 Real Link</span>
+                  {isRealLink ? (
+                    <span className="badge real">🟢 Razorpay</span>
+                  ) : isRealEmail ? (
+                    <span className="badge real">📧 Email</span>
                   ) : (
                     <span className="badge sim">⚪ Simulated</span>
                   )}

@@ -1,8 +1,9 @@
 """
 Executor: hybrid real + simulated recovery outcomes.
 - Top 5 highest-value transactions get REAL Razorpay test-mode payment links.
+- Messaging actions (reminder, discount, notification) send REAL emails via SendGrid.
 - Everything else is simulated.
-- If Razorpay rate-limits or fails, gracefully falls back to simulation.
+- If any real service fails, gracefully falls back to simulation.
 """
 import random
 import os
@@ -10,6 +11,12 @@ from app.agents.state import RecoveryState
 from app.agents.policy_engine import record_bandit_outcome
 from app.agents.state import update_status
 from app.utils.razorpay_client import create_test_payment_link, should_create_real_link
+from app.utils.sendgrid_client import (
+    send_cart_reminder_email,
+    send_discount_code_email,
+    send_product_recommendation_email,
+    send_payment_notification_email,
+)
 
 ACTION_SUCCESS_ODDS = {
     "retry_now": 0.7,
@@ -43,9 +50,11 @@ def execute_node(state: RecoveryState) -> RecoveryState:
     # Rank all transactions by value so we know which are "top"
     value_ranks = _rank_by_value(state["transactions"])
 
-    # Check if Razorpay is configured
+    # Check if real services are configured
     razorpay_enabled = bool(os.getenv("RAZORPAY_KEY_ID")) and bool(os.getenv("RAZORPAY_KEY_SECRET"))
+    sendgrid_enabled = bool(os.getenv("SENDGRID_API_KEY"))
     real_links_created = 0
+    emails_sent = 0
 
     for index, decision in enumerate(state["decisions"], start=1):
         update_status(
@@ -76,13 +85,16 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "payment_link_id": None,
             "payment_link_url": None,
             "razorpay_error": None,
+            "email_sent": False,
+            "email_error": None,
+            "discount_code": None,
         }
 
-        # Try to create a REAL Razorpay payment link for top-value transactions
+        # --- 1. Try Razorpay payment link for retry actions ---
         rank = value_ranks.get(txn["transaction_id"], 999)
-        eligible = should_create_real_link({"action_taken": action}, rank)
+        eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
 
-        if razorpay_enabled and success and eligible:
+        if razorpay_enabled and success and eligible_razorpay:
             try:
                 link_id, short_url = create_test_payment_link(
                     customer_name=txn["customer_name"],
@@ -94,18 +106,59 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                 result["execution_mode"] = "real_razorpay_link"
                 real_links_created += 1
             except Exception as e:
-                # Include the error in the result so it's visible in the audit trail
                 error_msg = str(e)
                 print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
                 result["execution_mode"] = "simulated (razorpay_failed)"
                 result["razorpay_error"] = error_msg
-        elif not razorpay_enabled:
-            result["razorpay_error"] = "Razorpay keys not configured"
-        elif not eligible:
-            result["razorpay_error"] = f"Not in top 5 (rank {rank}) or action={action}"
+
+        # --- 2. Try SendGrid email for messaging actions ---
+        customer_email = txn.get("customer_email", "")
+        items = txn.get("items", txn.get("failure_reason", ""))
+
+        if sendgrid_enabled and customer_email and success:
+            email_result = None
+            if action == "send_cart_reminder":
+                email_result = send_cart_reminder_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    items=items,
+                    cart_value=float(txn["amount"]),
+                )
+            elif action == "send_discount_code":
+                email_result = send_discount_code_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    items=items,
+                    cart_value=float(txn["amount"]),
+                )
+                if email_result.get("discount_code"):
+                    result["discount_code"] = email_result["discount_code"]
+            elif action == "send_product_recommendation":
+                email_result = send_product_recommendation_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    items=items,
+                )
+            elif action == "notify_customer":
+                email_result = send_payment_notification_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    failure_reason=txn.get("failure_reason", "payment issue"),
+                    amount=float(txn["amount"]),
+                )
+
+            if email_result:
+                result["email_sent"] = email_result.get("sent", False)
+                if email_result.get("error"):
+                    result["email_error"] = email_result["error"]
+                if result["email_sent"]:
+                    emails_sent += 1
+                    # Mark as real execution if email went out
+                    if result["execution_mode"] == "simulated":
+                        result["execution_mode"] = "real_email_sent"
 
         results.append(result)
 
-    print(f"[execute] {real_links_created} real Razorpay links created, {total - real_links_created} simulated")
+    print(f"[execute] {real_links_created} real Razorpay links, {emails_sent} real emails, {total - real_links_created - emails_sent} simulated")
     state["results"] = results
     return state
