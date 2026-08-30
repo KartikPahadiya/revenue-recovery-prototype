@@ -127,6 +127,17 @@ export default function AbandonedCartDemo() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customer_name: customerName,
+            customer_email: customerEmail,
+            amount: cartTotal,
+            payment_method: paymentMethod,
+            failure_reason: failureReason,
+            leak_type: txnType,
+          }),
+        })
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_name: customerName,
             amount: cartTotal,
             payment_method: paymentMethod,
             failure_reason: failureReason,

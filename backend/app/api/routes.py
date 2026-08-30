@@ -19,6 +19,7 @@ USER_SUBMISSIONS_PATH = os.path.join(DATA_DIR, "user_submissions.json")
 
 class TransactionSubmission(BaseModel):
     customer_name: str
+    customer_email: str = ""
     amount: float
     payment_method: str
     failure_reason: str
@@ -66,6 +67,7 @@ def submit_transaction(payload: TransactionSubmission):
         "leak_type": payload.leak_type,
         "transaction_id": f"USR{uuid.uuid4().hex[:8].upper()}",
         "customer_name": payload.customer_name,
+        "customer_email": payload.customer_email,
         "amount": payload.amount,
         "payment_method": payload.payment_method,
         "failure_reason": payload.failure_reason,
