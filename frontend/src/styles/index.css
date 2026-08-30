@@ -101,6 +101,29 @@ summary { cursor: pointer; }
   text-decoration: none;
 }
 
+.dashboard-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.submit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.store-link {
+  background: var(--accent);
+  color: #14100c;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .qr-panel {
   display: flex;
   align-items: center;
@@ -367,7 +390,14 @@ summary { cursor: pointer; }
   gap: 10px;
 }
 
-.customer-fields input {
+.customer-fields input, .customer-fields select {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #2a231b;
+  background: #14100c;
+  color: var(--text);
+  font-size: 14px;
+}
   padding: 10px;
   border-radius: 6px;
   border: 1px solid #2a231b;
