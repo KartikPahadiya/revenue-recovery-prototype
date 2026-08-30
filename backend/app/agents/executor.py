@@ -1,13 +1,13 @@
 """
 Executor: hybrid real + simulated recovery outcomes.
-- Top 5 highest-value transactions get REAL Razorpay test-mode payment links.
-- Messaging actions (reminder, discount, notification) send REAL emails via SendGrid.
-- Cart recovery emails INCLUDE the Razorpay payment link for one-click payment.
+- Top transactions get REAL Razorpay test-mode payment links.
+- Messaging actions send REAL emails via SendGrid with payment links inside.
 - Everything else is simulated.
 - If any real service fails, gracefully falls back to simulation.
 """
 import random
 import os
+import time
 from app.agents.state import RecoveryState
 from app.agents.policy_engine import record_bandit_outcome
 from app.agents.state import update_status
@@ -106,6 +106,8 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                 result["payment_link_url"] = short_url
                 result["execution_mode"] = "real_razorpay_link"
                 real_links_created += 1
+                # Small delay to avoid Razorpay rate limits between links
+                time.sleep(1.5)
             except Exception as e:
                 error_msg = str(e)
                 print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
