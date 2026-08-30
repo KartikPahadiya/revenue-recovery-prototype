@@ -76,6 +76,8 @@ def create_test_payment_link(customer_name: str, amount: float, description: str
 
 
 # Cap on how many real payment links we create per batch
+# Keep at 1 to avoid Razorpay test mode rate limits
+MAX_REAL_PAYMENT_LINKS_PER_BATCH = 1
 # Keep low to avoid Razorpay rate limits in test mode
 MAX_REAL_PAYMENT_LINKS_PER_BATCH = 2
 

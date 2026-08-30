@@ -106,8 +106,8 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                 result["payment_link_url"] = short_url
                 result["execution_mode"] = "real_razorpay_link"
                 real_links_created += 1
-                # Small delay to avoid Razorpay rate limits between links
-                time.sleep(1.5)
+                # Delay to avoid Razorpay rate limits between links
+                time.sleep(3)
             except Exception as e:
                 error_msg = str(e)
                 print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
@@ -161,8 +161,8 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     result["email_error"] = email_result["error"]
                 if result["email_sent"]:
                     emails_sent += 1
-                    # Mark as real execution if email went out
-                    if result["execution_mode"] == "simulated":
+                    # Mark as real execution if email went out (even if Razorpay failed)
+                    if result["execution_mode"].startswith("simulated"):
                         result["execution_mode"] = "real_email_sent"
                     elif result["execution_mode"] == "real_razorpay_link":
                         result["execution_mode"] = "real_link+email"
