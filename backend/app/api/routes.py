@@ -124,6 +124,7 @@ def abandon_cart(payload: CartAbandonment):
         "transaction_id": txn["transaction_id"],
         "payment_link_created": razorpay_link_id is not None,
         "payment_link_url": razorpay_short_url,
+        "razorpay_error": razorpay_error,
     }
 
 

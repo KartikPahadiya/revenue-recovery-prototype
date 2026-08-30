@@ -104,6 +104,33 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             if txn.get("razorpay_error"):
                 result["razorpay_error"] = txn["razorpay_error"]
         else:
+            # Only try creating a new link if abandon-cart didn't already fail with a rate limit.
+            # If it did fail, preserve that error and don't hammer the API again.
+            existing_error = txn.get("razorpay_error", "")
+            if existing_error and ("429" in existing_error or "cooldown" in existing_error or "rate limit" in existing_error):
+                result["execution_mode"] = "simulated (razorpay_rate_limited)"
+                result["razorpay_error"] = f"Skipped retry: {existing_error}"
+            else:
+                rank = value_ranks.get(txn["transaction_id"], 999)
+                eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
+
+                if razorpay_enabled and success and eligible_razorpay:
+                    try:
+                        link_id, short_url = create_test_payment_link(
+                            customer_name=txn["customer_name"],
+                            amount=float(txn["amount"]),
+                            description=f"Recovery for {txn.get('failure_reason', 'failed payment')}",
+                        )
+                        result["payment_link_id"] = link_id
+                        result["payment_link_url"] = short_url
+                        result["execution_mode"] = "real_razorpay_link"
+                        real_links_created += 1
+                        time.sleep(3)  # Delay to avoid Razorpay rate limits
+                    except Exception as e:
+                        error_msg = str(e)
+                        print(f"[razorpay] Failed for {txn['transaction_id']}: {error_msg}")
+                        result["execution_mode"] = "simulated (razorpay_failed)"
+                        result["razorpay_error"] = error_msg
             # Try to create a new Razorpay link for transactions without one (sample data, etc.)
             rank = value_ranks.get(txn["transaction_id"], 999)
             eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
