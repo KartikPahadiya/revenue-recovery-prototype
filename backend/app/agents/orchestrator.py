@@ -76,27 +76,6 @@ def build_audit_trail_node(state: RecoveryState) -> RecoveryState:
         })
 
     state["audit_trail"] = trail
-    for txn in state["transactions"]:
-        tid = txn["transaction_id"]
-        trail.append({
-            "transaction_id": tid,
-            "txn": txn,
-            "diagnosis": diag_by_id.get(tid, {}),
-            "decision": decision_by_id.get(tid, {}),
-            "result": result_by_id.get(tid, {}),
-            "negotiation": negotiation_by_id.get(tid),
-        })
-    for txn in state["transactions"]:
-        tid = txn["transaction_id"]
-        trail.append({
-            "transaction_id": tid,
-            "diagnosis": diag_by_id.get(tid, {}),
-            "decision": decision_by_id.get(tid, {}),
-            "result": result_by_id.get(tid, {}),
-            "negotiation": negotiation_by_id.get(tid),
-        })
-
-    state["audit_trail"] = trail
     return state
 
 
