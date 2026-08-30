@@ -134,16 +134,6 @@ export default function AbandonedCartDemo() {
             leak_type: txnType,
           }),
         })
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customer_name: customerName,
-            amount: cartTotal,
-            payment_method: paymentMethod,
-            failure_reason: failureReason,
-            leak_type: txnType,
-          }),
-        })
       }
       data = await res.json()
       if (data.status === 'ok') {
