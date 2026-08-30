@@ -88,7 +88,54 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "discount_code": None,
         }
 
-        # Try SendGrid email for messaging actions
+        # Try SendGrid email for messaging actions — ALWAYS send for demo,
+        # but the simulated success flag determines the outcome metric.
+        customer_email = txn.get("customer_email", "")
+        items = txn.get("items", txn.get("failure_reason", ""))
+
+        if sendgrid_enabled and customer_email:
+            email_result = None
+            if action == "send_cart_reminder":
+                email_result = send_cart_reminder_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    items=items,
+                    cart_value=float(txn["amount"]),
+                    payment_url=payment_url,
+                )
+            elif action == "send_discount_code":
+                email_result = send_discount_code_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    items=items,
+                    cart_value=float(txn["amount"]),
+                    payment_url=payment_url,
+                )
+                if email_result.get("discount_code"):
+                    result["discount_code"] = email_result["discount_code"]
+            elif action == "send_product_recommendation":
+                email_result = send_product_recommendation_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    items=items,
+                    payment_url=payment_url,
+                )
+            elif action == "notify_customer":
+                email_result = send_payment_notification_email(
+                    customer_name=txn["customer_name"],
+                    customer_email=customer_email,
+                    failure_reason=txn.get("failure_reason", "payment issue"),
+                    amount=float(txn["amount"]),
+                    payment_url=payment_url,
+                )
+
+            if email_result:
+                result["email_sent"] = email_result.get("sent", False)
+                if email_result.get("error"):
+                    result["email_error"] = email_result["error"]
+                if result["email_sent"]:
+                    emails_sent += 1
+                    result["execution_mode"] = "real_email_sent"
         customer_email = txn.get("customer_email", "")
         items = txn.get("items", txn.get("failure_reason", ""))
 
