@@ -2,6 +2,7 @@
 Executor: hybrid real + simulated recovery outcomes.
 - Top 5 highest-value transactions get REAL Razorpay test-mode payment links.
 - Messaging actions (reminder, discount, notification) send REAL emails via SendGrid.
+- Cart recovery emails INCLUDE the Razorpay payment link for one-click payment.
 - Everything else is simulated.
 - If any real service fails, gracefully falls back to simulation.
 """
@@ -90,7 +91,7 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "discount_code": None,
         }
 
-        # --- 1. Try Razorpay payment link for retry actions ---
+        # --- 1. Try Razorpay payment link for ALL eligible top-value transactions ---
         rank = value_ranks.get(txn["transaction_id"], 999)
         eligible_razorpay = should_create_real_link({"action_taken": action}, rank)
 
@@ -111,9 +112,10 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                 result["execution_mode"] = "simulated (razorpay_failed)"
                 result["razorpay_error"] = error_msg
 
-        # --- 2. Try SendGrid email for messaging actions ---
+        # --- 2. Try SendGrid email for messaging actions (includes payment link if available) ---
         customer_email = txn.get("customer_email", "")
         items = txn.get("items", txn.get("failure_reason", ""))
+        payment_url = result.get("payment_link_url")  # may be None
 
         if sendgrid_enabled and customer_email and success:
             email_result = None
@@ -123,6 +125,7 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     customer_email=customer_email,
                     items=items,
                     cart_value=float(txn["amount"]),
+                    payment_url=payment_url,
                 )
             elif action == "send_discount_code":
                 email_result = send_discount_code_email(
@@ -130,6 +133,7 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     customer_email=customer_email,
                     items=items,
                     cart_value=float(txn["amount"]),
+                    payment_url=payment_url,
                 )
                 if email_result.get("discount_code"):
                     result["discount_code"] = email_result["discount_code"]
@@ -138,6 +142,7 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     customer_name=txn["customer_name"],
                     customer_email=customer_email,
                     items=items,
+                    payment_url=payment_url,
                 )
             elif action == "notify_customer":
                 email_result = send_payment_notification_email(
@@ -145,6 +150,7 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     customer_email=customer_email,
                     failure_reason=txn.get("failure_reason", "payment issue"),
                     amount=float(txn["amount"]),
+                    payment_url=payment_url,
                 )
 
             if email_result:
@@ -156,9 +162,11 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     # Mark as real execution if email went out
                     if result["execution_mode"] == "simulated":
                         result["execution_mode"] = "real_email_sent"
+                    elif result["execution_mode"] == "real_razorpay_link":
+                        result["execution_mode"] = "real_link+email"
 
         results.append(result)
 
-    print(f"[execute] {real_links_created} real Razorpay links, {emails_sent} real emails, {total - real_links_created - emails_sent} simulated")
+    print(f"[execute] {real_links_created} Razorpay links, {emails_sent} emails sent")
     state["results"] = results
     return state

@@ -60,6 +60,10 @@ export default function AbandonedCartDemo() {
       setStatus({ error: 'Enter your name first.' })
       return
     }
+    if (!customerEmail.trim() || !customerEmail.includes('@')) {
+      setStatus({ error: 'Enter a valid email address.' })
+      return
+    }
     if (!reason) {
       setStatus({ error: 'Please select a reason for leaving.' })
       return
@@ -74,7 +78,7 @@ export default function AbandonedCartDemo() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_name: customerName,
-          customer_email: customerEmail || `${customerName.toLowerCase().replace(/\s/g, '')}@demo.com`,
+          customer_email: customerEmail,
           items: cartItemsText,
           cart_value: cartTotal,
           reason: reason,
@@ -146,7 +150,7 @@ export default function AbandonedCartDemo() {
             />
             <input
               type="email"
-              placeholder="Email (optional)"
+              placeholder="Your email *"
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
             />

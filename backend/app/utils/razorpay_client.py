@@ -64,6 +64,14 @@ MAX_REAL_PAYMENT_LINKS_PER_BATCH = 5
 
 def should_create_real_link(txn: dict, rank: int) -> bool:
     """
+    Create real Razorpay links for the top-N highest-value transactions.
+    Includes payment retries, notifications, AND cart recovery actions.
+    """
+    if rank >= MAX_REAL_PAYMENT_LINKS_PER_BATCH:
+        return False
+    action = txn.get("action_taken", "")
+    return action in ("retry_now", "notify_customer", "send_discount_code", "send_cart_reminder")
+    """
     Only create real links for the top-N highest-value transactions
     where the action is 'retry_now' or 'notify_customer'.
     """
