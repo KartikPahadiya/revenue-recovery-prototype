@@ -93,13 +93,6 @@ export default function AbandonedCartDemo() {
           paymentLink: data.payment_link_url,
         })
         setCart([])
-      }
-        setStatus({
-          success: true,
-          message: `Cart abandoned! The AI agent will now work on recovering it.`,
-          txnId: data.transaction_id,
-        })
-        setCart([])
       } else {
         setStatus({ error: data.detail || 'Something went wrong' })
       }
@@ -185,16 +178,6 @@ export default function AbandonedCartDemo() {
                   🔗 Razorpay link pre-created: <a href={status.paymentLink} target="_blank" rel="noopener noreferrer" style={{ color: '#4ade80', wordBreak: 'break-all' }}>{status.paymentLink}</a>
                 </div>
               )}
-              <div style={{ marginTop: 12 }}>
-                <a href="/dashboard" className="back-link">→ See AI Recovery in Action</a>
-              </div>
-            </div>
-          )}
-            <div className="status-success">
-              ✅ {status.message}
-              <div style={{ fontSize: '12px', color: '#a89f92', marginTop: 6 }}>
-                Transaction ID: {status.txnId}
-              </div>
               <div style={{ marginTop: 12 }}>
                 <a href="/dashboard" className="back-link">→ See AI Recovery in Action</a>
               </div>
