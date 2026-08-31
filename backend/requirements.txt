@@ -7,7 +7,6 @@ faker==28.4.1
 langgraph==0.2.34
 langchain-core==0.3.10
 langchain-groq==0.2.0
-langchain-nvidia-ai-endpoints==0.3.5
 numpy==1.26.4
 langchain-ollama==0.2.0
 sendgrid==6.11.0
