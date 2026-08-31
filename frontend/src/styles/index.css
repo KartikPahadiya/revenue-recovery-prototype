@@ -124,24 +124,7 @@ summary { cursor: pointer; }
   text-decoration: none;
 }
 
-.qr-panel {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--card);
-  padding: 8px 12px;
-  border-radius: 8px;
-}
 
-.qr-panel-text {
-  display: flex;
-  flex-direction: column;
-  font-size: 11px;
-  color: var(--text-dim);
-  max-width: 140px;
-}
-
-.qr-url { word-break: break-all; }
 
 .submit-wrap {
   max-width: 420px;
