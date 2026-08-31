@@ -7,13 +7,15 @@ from typing import TypedDict, List, Dict, Any
 
 
 class RecoveryState(TypedDict):
-    transactions: List[Dict[str, Any]]       # raw batch loaded from CSV
-    diagnoses: List[Dict[str, Any]]          # output of diagnosis_agent
-    allocation: List[Dict[str, Any]]         # output of allocator (priority order)
-    decisions: List[Dict[str, Any]]          # output of policy_engine
-    results: List[Dict[str, Any]]            # output of action executor
-    audit_trail: List[Dict[str, Any]]        # final merged, per-transaction record
-    halted: bool                             # set True if a data-quality gate fails
+    transactions: List[Dict[str, Any]]
+    diagnoses: List[Dict[str, Any]]
+    allocation: List[Dict[str, Any]]
+    decisions: List[Dict[str, Any]]
+    negotiations: List[Dict[str, Any]]      # was missing from the TypedDict too
+    personalizations: List[Dict[str, Any]]  # NEW
+    results: List[Dict[str, Any]]
+    audit_trail: List[Dict[str, Any]]
+    halted: bool
     halt_reason: str
 
 

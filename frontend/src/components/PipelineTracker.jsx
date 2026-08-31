@@ -6,6 +6,7 @@ const STAGES = [
   { key: 'allocate', label: 'Allocate' },
   { key: 'decide', label: 'Decide' },
   { key: 'negotiate', label: 'Negotiate' },
+  { key: 'personalize', label: 'Personalize' },   // NEW
   { key: 'execute', label: 'Execute' },
 ]
 

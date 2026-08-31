@@ -13,6 +13,7 @@ from app.agents.policy_engine import decide_node
 from app.agents.negotiation_agent import negotiate_node
 from app.agents.executor import execute_node
 from app.agents.state import update_status
+from app.agents.personalize_agent import personalize_node
 
 def route_after_detect(state: RecoveryState) -> str:
     return "halted" if state.get("halted") else "continue"
@@ -28,6 +29,7 @@ def build_graph():
     graph.add_node("negotiate", negotiate_node)
     graph.add_node("execute", execute_node)
     graph.add_node("build_audit_trail", build_audit_trail_node)
+    graph.add_node("personalize", personalize_node)
 
     graph.set_entry_point("detect")
 
@@ -41,7 +43,8 @@ def build_graph():
     graph.add_edge("diagnose", "allocate")
     graph.add_edge("allocate", "decide")
     graph.add_edge("decide", "negotiate")
-    graph.add_edge("negotiate", "execute")
+    graph.add_edge("negotiate", "personalize")
+    graph.add_edge("personalize", "execute")
     graph.add_edge("execute", "build_audit_trail")
     graph.add_edge("build_audit_trail", END)
 

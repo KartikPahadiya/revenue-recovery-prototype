@@ -5,6 +5,7 @@ All cart recovery emails now include the Razorpay payment link for one-click che
 Gracefully falls back to simulation if SendGrid is not configured or fails.
 """
 import os
+import html
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 SENDGRID_SENDER = os.getenv("SENDGRID_SENDER", "noreply@revenue-recovery-demo.com")
@@ -15,6 +16,46 @@ def _get_client():
     from sendgrid import SendGridAPIClient
     return SendGridAPIClient(SENDGRID_API_KEY)
 
+def send_personalized_email(
+    customer_name: str,
+    customer_email: str,
+    subject: str,
+    body_text: str,
+    payment_url: str | None = None,
+    discount_code: str | None = None,
+) -> dict:
+    """Send an LLM-drafted email. body_text is plain text drafted by the
+    LLM; discount_code/payment_url are inserted by code, never by the LLM."""
+    safe_name = html.escape(customer_name)
+    safe_body = html.escape(body_text).replace("\n", "<br>")
+    link_html = _payment_link_html(payment_url)
+
+    discount_html = ""
+    if discount_code:
+        discount_html = f"""
+        <div style="background: #1a3a1a; border: 2px dashed #4ade80; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #4ade80; font-size: 14px; font-weight: 600;">YOUR EXCLUSIVE CODE</p>
+            <p style="margin: 10px 0; color: #4ade80; font-size: 32px; font-weight: 700; letter-spacing: 2px;">{html.escape(discount_code)}</p>
+        </div>
+        """
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #d97706;">Hi {safe_name},</h2>
+        <p>{safe_body}</p>
+        {discount_html}
+        {link_html}
+        <a href="https://revenue-recovery-prototype.onrender.com/"
+           style="display: inline-block; background: #d97706; color: white; padding: 12px 24px;
+                  text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 10px;">
+            Browse Store →
+        </a>
+        <p style="color: #999; font-size: 12px; margin-top: 30px;">
+            This is a demo from the AI Revenue Recovery Agent. No actual purchase will be charged.
+        </p>
+    </div>
+    """
+    return _send_email(customer_email, html.unescape(subject), html_content)
 
 def _send_email(to_email: str, subject: str, html_content: str) -> dict:
     """Send email via SendGrid. Returns result dict."""
