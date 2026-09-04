@@ -28,6 +28,114 @@ FAILURE_REASONS_UPI = [
 ]
 PAYMENT_METHODS = ["card", "upi", "netbanking", "wallet"]
 
+DEMO_PERSONAS = [
+    {
+        "leak_type": "failed_payment",
+        "transaction_id": "DEMO_HIGH_001",
+        "customer_id": "CUST_HIGH_001",
+        "customer_name": "Aarav Mehta",
+        "customer_email": "",
+        "amount": 2450.00,
+        "payment_method": "card",
+        "failure_reason": "card_expired",
+        "retry_count": 0,
+        "timestamp": "2026-09-04T09:00:00",
+    },
+    {
+        "leak_type": "checkout_abandonment",
+        "transaction_id": "DEMO_PRICE_002",
+        "customer_id": "CUST_PRICE_002",
+        "customer_name": "Meera Shah",
+        "customer_email": "",
+        "amount": 1875.00,
+        "payment_method": "online",
+        "failure_reason": "abandoned_cart (shipping_cost): coffee, breakfast cereal, almond milk",
+        "items": "coffee, breakfast cereal, almond milk",
+        "retry_count": 0,
+        "follow_up_count": 0,
+        "timestamp": "2026-09-04T09:05:00",
+    },
+    {
+        "leak_type": "checkout_abandonment",
+        "transaction_id": "DEMO_RISK_003",
+        "customer_id": "CUST_RISK_003",
+        "customer_name": "Kabir Rao",
+        "customer_email": "",
+        "amount": 1650.00,
+        "payment_method": "online",
+        "failure_reason": "abandoned_cart (just_browsing): protein bars, juice pack",
+        "items": "protein bars, juice pack",
+        "retry_count": 0,
+        "follow_up_count": 1,
+        "timestamp": "2026-09-04T09:10:00",
+    },
+    {
+        "leak_type": "checkout_abandonment",
+        "transaction_id": "DEMO_NEW_004",
+        "customer_id": "CUST_NEW_004",
+        "customer_name": "Nisha Iyer",
+        "customer_email": "",
+        "amount": 620.00,
+        "payment_method": "online",
+        "failure_reason": "abandoned_cart (comparison_shopping): tea, biscuits",
+        "items": "tea, biscuits",
+        "retry_count": 0,
+        "follow_up_count": 0,
+        "timestamp": "2026-09-04T09:15:00",
+    },
+    {
+        "leak_type": "failed_payment",
+        "transaction_id": "DEMO_LOYAL_005",
+        "customer_id": "CUST_LOYAL_005",
+        "customer_name": "Rohan Kapoor",
+        "customer_email": "",
+        "amount": 3200.00,
+        "payment_method": "upi",
+        "failure_reason": "bank_server_down",
+        "retry_count": 0,
+        "timestamp": "2026-09-04T09:20:00",
+    },
+    {
+        "leak_type": "overdue_invoice",
+        "transaction_id": "DEMO_INV_006",
+        "customer_id": "CUST_INV_006",
+        "customer_name": "Northstar Retail Pvt Ltd",
+        "customer_email": "",
+        "amount": 80000.00,
+        "payment_method": "bank_transfer",
+        "failure_reason": "overdue",
+        "retry_count": 0,
+        "due_date": "2026-08-01T00:00:00",
+        "days_overdue": 34,
+        "timestamp": "2026-08-01T00:00:00",
+    },
+    {
+        "leak_type": "failed_subscription",
+        "transaction_id": "DEMO_SUB_007",
+        "customer_id": "CUST_SUB_007",
+        "customer_name": "Sana Khan",
+        "customer_email": "",
+        "amount": 999.00,
+        "payment_method": "card",
+        "failure_reason": "mandate_expired",
+        "retry_count": 0,
+        "billing_cycle_day": 4,
+        "timestamp": "2026-09-04T09:25:00",
+    },
+    {
+        "leak_type": "failed_payment",
+        "transaction_id": "DEMO_FRAUD_008",
+        "customer_id": "CUST_FRAUD_008",
+        "customer_name": "Unknown Buyer",
+        "customer_email": "",
+        "amount": 42000.00,
+        "payment_method": "card",
+        "failure_reason": "velocity_check_failed suspected_fraud",
+        "retry_count": 0,
+        "timestamp": "2026-09-04T09:30:00",
+    },
+]
+
 
 def generate_failed_payments(n=300):
     rows = []
@@ -89,12 +197,13 @@ def generate_overdue_invoices(n=15):
 
 
 def main():
-    all_rows = (
+    general_rows = (
         generate_failed_payments(300)
         + generate_failed_subscriptions(100)
         + generate_overdue_invoices(15)
     )
-    random.shuffle(all_rows)
+    random.shuffle(general_rows)
+    all_rows = DEMO_PERSONAS + general_rows
 
     fieldnames = sorted({key for row in all_rows for key in row.keys()})
     out_path = os.path.join(OUT_DIR, "transactions.csv")

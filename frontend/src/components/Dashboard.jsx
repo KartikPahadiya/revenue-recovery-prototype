@@ -3,6 +3,7 @@ import RecoveryStats from './RecoveryStats.jsx'
 import AllocationChart from './AllocationChart.jsx'
 import TransactionTable from './TransactionTable.jsx'
 import AuditTrail from './AuditTrail.jsx'
+import CustomerProfile from './CustomerProfile.jsx'
 
 export default function Dashboard({ result }) {
   const [showDetails, setShowDetails] = useState(false)
@@ -10,6 +11,7 @@ export default function Dashboard({ result }) {
   return (
     <div className="dashboard">
       <RecoveryStats result={result} />
+      <CustomerProfile auditTrail={result.audit_trail} />
       <AllocationChart auditTrail={result.audit_trail} />
 
       <div className="detail-toggle-row">

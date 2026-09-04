@@ -29,6 +29,7 @@ BATCH_SIZE = 25
 MAX_RETRIES = 4
 
 VALID_CATEGORIES = {"temporary_issue", "customer_issue", "bank_issue", "fraud_risk"}
+FRAUD_SIGNALS = ("fraud", "velocity_check", "stolen", "suspicious")
 
 def _chunk(lst, size):
     for i in range(0, len(lst), size):
@@ -62,6 +63,9 @@ def _diagnose_batch(txn_batch):
             for t in txn_batch:
                 result = results_by_id.get(t["transaction_id"], {})
                 category = result.get("category", "customer_issue")
+                deterministic_category = _deterministic_category(t)
+                if deterministic_category:
+                    category = deterministic_category
                 if category not in VALID_CATEGORIES:
                     print(f"[diagnose] invalid category '{category}' for {t['transaction_id']}, defaulting to customer_issue")
                     category = "customer_issue"
@@ -88,6 +92,13 @@ def _diagnose_batch(txn_batch):
         }
         for t in txn_batch
     ]
+
+
+def _deterministic_category(txn: dict) -> str | None:
+    reason = str(txn.get("failure_reason", "")).lower()
+    if any(signal in reason for signal in FRAUD_SIGNALS):
+        return "fraud_risk"
+    return None
 
 
 def diagnose_node(state: RecoveryState) -> RecoveryState:

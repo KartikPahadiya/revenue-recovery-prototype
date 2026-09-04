@@ -9,6 +9,7 @@ import random
 import os
 from app.agents.state import RecoveryState
 from app.agents.policy_engine import record_bandit_outcome
+from app.customer.repository import record_contact, record_recovery
 from app.agents.state import update_status
 from app.utils.sendgrid_client import (
     send_cart_reminder_email,
@@ -44,6 +45,9 @@ def execute_node(state: RecoveryState) -> RecoveryState:
         return state
 
     txn_by_id = {t["transaction_id"]: t for t in state["transactions"]}
+    profile_by_id = {p["transaction_id"]: p["profile"] for p in state.get("customer_profiles", [])}
+    segment_by_id = {s["transaction_id"]: s for s in state.get("customer_segments", [])}
+    diagnosis_by_id = {d["transaction_id"]: d for d in state.get("diagnoses", [])}
     personalization_by_id = {
         p["transaction_id"]: p for p in state.get("personalizations", [])
     }
@@ -51,6 +55,10 @@ def execute_node(state: RecoveryState) -> RecoveryState:
     total = len(state["decisions"])
 
     sendgrid_enabled = bool(os.getenv("SENDGRID_API_KEY"))
+
+    print(f"[execute] SendGrid enabled: {sendgrid_enabled}")
+    print(f"[execute] SendGrid sender: {os.getenv('SENDGRID_SENDER', '')}")
+
     emails_sent = 0
 
     for index, decision in enumerate(state["decisions"], start=1):
@@ -61,12 +69,16 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             message=f"Executing recovery actions ({index}/{total})",
         )
         txn = txn_by_id[decision["transaction_id"]]
+        profile = profile_by_id.get(decision["transaction_id"], {})
+        segment_info = segment_by_id.get(decision["transaction_id"], {})
+        segment = segment_info.get("segment", "NEW")
+        diagnosis = diagnosis_by_id.get(decision["transaction_id"], {})
         action = decision["action"]
         odds = ACTION_SUCCESS_ODDS.get(action, 0.3)
         success = random.random() < odds
 
         if action in ("retry_immediately", "retry_in_3_days", "send_update_card_link"):
-            record_bandit_outcome(action, success)
+            record_bandit_outcome(action, success, segment, diagnosis.get("category", "unknown"))
 
         outcome = "recovered" if success else (
             "escalated" if action == "escalate_human" else "still_failed"
@@ -75,7 +87,19 @@ def execute_node(state: RecoveryState) -> RecoveryState:
 
         customer_email = txn.get("customer_email", "")
         is_user_submission = bool(customer_email)
-        payment_url = _get_on_demand_payment_url(txn["transaction_id"]) if is_user_submission else None
+        payment_url = (
+            _get_on_demand_payment_url(txn["transaction_id"])
+            if is_user_submission
+            else None
+        )
+
+        print(
+            f"[execute] txn={txn['transaction_id']} "
+            f"action={action} "
+            f"email={customer_email!r} "
+            f"is_user_submission={is_user_submission} "
+            f"sendgrid_enabled={sendgrid_enabled}"
+        )
 
         result = {
             "transaction_id": txn["transaction_id"],
@@ -89,6 +113,9 @@ def execute_node(state: RecoveryState) -> RecoveryState:
             "email_sent": False,
             "email_error": None,
             "discount_code": None,
+            "customer_id": profile.get("customer_id"),
+            "customer_segment": segment,
+            "requires_human_approval": decision.get("requires_human_approval", False),
         }
 
         if is_user_submission and sendgrid_enabled:
@@ -133,12 +160,24 @@ def execute_node(state: RecoveryState) -> RecoveryState:
                     )
 
             if email_result:
+                print(
+                    f"[sendgrid] txn={txn['transaction_id']} "
+                    f"result={email_result}"
+                )
                 result["email_sent"] = email_result.get("sent", False)
                 if email_result.get("error"):
                     result["email_error"] = email_result["error"]
                 if result["email_sent"]:
                     emails_sent += 1
                     result["execution_mode"] = "real_email_sent"
+                    record_contact(profile.get("customer_id"), used_discount=action == "send_discount_code")
+
+        if success and is_user_submission and profile.get("customer_id"):
+            record_recovery(
+                profile["customer_id"],
+                amount_recovered,
+                used_discount=action == "send_discount_code",
+            )
 
         results.append(result)
 

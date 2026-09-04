@@ -27,6 +27,8 @@ Rules:
 - "subject": under 12 words, no ALL CAPS, at most one emoji.
 - "body": 2-4 short sentences, plain text (NOT html), specific to their
   situation (name, items or reason) -- warm, not pushy.
+- Use provided customer segment/history to choose tone, but do not invent
+  facts or claim preferences that are not present in the input.
 - Do NOT invent or mention discount percentages, amounts, dates, or
   promises you were not explicitly given. Do NOT include links or codes --
   those are inserted separately by the system.
@@ -75,6 +77,9 @@ def _personalize_batch(batch):
             "transaction_id": t["transaction_id"],
             "customer_name": t["customer_name"],
             "action": t["_action"],
+            "customer_segment": t.get("_customer_segment"),
+            "customer_traits": t.get("_customer_traits", []),
+            "customer_profile": t.get("_customer_profile", {}),
             "leak_type": t.get("leak_type", ""),
             "items": t.get("items", ""),
             "failure_reason": t.get("failure_reason", ""),
@@ -118,8 +123,9 @@ def personalize_node(state: RecoveryState) -> RecoveryState:
     if state.get("halted"):
         return state
 
-    txn_by_id = {t["transaction_id"]: t for t in state["transactions"]}
     decision_by_id = {d["transaction_id"]: d for d in state["decisions"]}
+    profile_by_id = {p["transaction_id"]: p["profile"] for p in state.get("customer_profiles", [])}
+    segment_by_id = {s["transaction_id"]: s for s in state.get("customer_segments", [])}
 
     # Only bother personalizing transactions that will actually get an email
     # AND are user submissions (have an email address) -- matches executor.py gating
@@ -130,6 +136,9 @@ def personalize_node(state: RecoveryState) -> RecoveryState:
         if action in EMAIL_ACTIONS and txn.get("customer_email"):
             enriched = dict(txn)
             enriched["_action"] = action
+            enriched["_customer_profile"] = profile_by_id.get(txn["transaction_id"], {})
+            enriched["_customer_segment"] = segment_by_id.get(txn["transaction_id"], {}).get("segment", "NEW")
+            enriched["_customer_traits"] = segment_by_id.get(txn["transaction_id"], {}).get("traits", [])
             candidates.append(enriched)
 
     personalizations = []

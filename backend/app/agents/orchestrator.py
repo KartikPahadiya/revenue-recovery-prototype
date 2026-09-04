@@ -9,6 +9,8 @@ from app.agents.state import RecoveryState
 from app.agents.detector_agent import detect_node
 from app.agents.diagnosis_agent import diagnose_node
 from app.agents.allocator import allocate_node
+from app.agents.customer_profile_agent import build_customer_profiles_node
+from app.agents.customer_segment_agent import segment_customers_node
 from app.agents.policy_engine import decide_node
 from app.agents.negotiation_agent import negotiate_node
 from app.agents.executor import execute_node
@@ -24,6 +26,8 @@ def build_graph():
 
     graph.add_node("detect", detect_node)
     graph.add_node("diagnose", diagnose_node)
+    graph.add_node("profile", build_customer_profiles_node)
+    graph.add_node("segment", segment_customers_node)
     graph.add_node("allocate", allocate_node)
     graph.add_node("decide", decide_node)
     graph.add_node("negotiate", negotiate_node)
@@ -40,7 +44,9 @@ def build_graph():
         {"continue": "diagnose", "halted": "build_audit_trail"},
     )
 
-    graph.add_edge("diagnose", "allocate")
+    graph.add_edge("diagnose", "profile")
+    graph.add_edge("profile", "segment")
+    graph.add_edge("segment", "allocate")
     graph.add_edge("allocate", "decide")
     graph.add_edge("decide", "negotiate")
     graph.add_edge("negotiate", "personalize")
@@ -61,6 +67,9 @@ def build_audit_trail_node(state: RecoveryState) -> RecoveryState:
     decision_by_id = {d["transaction_id"]: d for d in state["decisions"]}
     result_by_id = {r["transaction_id"]: r for r in state["results"]}
     negotiation_by_id = {n["transaction_id"]: n for n in state.get("negotiations", [])}
+    profile_by_id = {p["transaction_id"]: p["profile"] for p in state.get("customer_profiles", [])}
+    segment_by_id = {s["transaction_id"]: s for s in state.get("customer_segments", [])}
+    allocation_by_id = {a["transaction_id"]: a for a in state.get("allocation", [])}
 
     trail = []
     seen_ids = set()
@@ -73,6 +82,11 @@ def build_audit_trail_node(state: RecoveryState) -> RecoveryState:
             "transaction_id": tid,
             "txn": txn,
             "diagnosis": diag_by_id.get(tid, {}),
+            "customer_profile": profile_by_id.get(tid, {}),
+            "customer_segment": segment_by_id.get(tid, {}).get("segment"),
+            "segment_reason": segment_by_id.get(tid, {}).get("segment_reason"),
+            "customer_traits": segment_by_id.get(tid, {}).get("traits", []),
+            "allocation": allocation_by_id.get(tid, {}),
             "decision": decision_by_id.get(tid, {}),
             "result": result_by_id.get(tid, {}),
             "negotiation": negotiation_by_id.get(tid),

@@ -53,8 +53,26 @@ export default function AuditTrail({ auditTrail }) {
             </div>
 
             <p><strong>Diagnosis:</strong> {entry.diagnosis?.category} — {entry.diagnosis?.explanation}</p>
+            <p><strong>Customer segment:</strong> {entry.customer_segment || entry.decision?.customer_segment || 'NEW'}</p>
+            {entry.segment_reason && <p><strong>Why:</strong> {entry.segment_reason}</p>}
+            {entry.customer_traits?.length > 0 && (
+              <p><strong>Traits:</strong> {entry.customer_traits.join(', ')}</p>
+            )}
+            {entry.customer_profile?.customer_id && (
+              <p>
+                <strong>Customer history:</strong>{' '}
+                ₹{Number(entry.customer_profile.historical_revenue || 0).toLocaleString()} historical revenue ·{' '}
+                {entry.customer_profile.successful_recoveries || 0} recoveries ·{' '}
+                {entry.customer_profile.abandoned_carts || 0} abandonments ·{' '}
+                {entry.customer_profile.contacts_last_7_days || 0} contacts in 7 days
+              </p>
+            )}
             <p><strong>Rule applied:</strong> {entry.decision?.rule_applied}</p>
-            <p><strong>Priority score:</strong> {entry.decision?.priority_score}</p>
+            {entry.decision?.requires_human_approval && <p><strong>Governance:</strong> Human approval required before execution.</p>}
+            <p>
+              <strong>Priority score:</strong> {entry.decision?.priority_score}
+              {entry.allocation?.customer_factor && <> · Customer factor: {entry.allocation.customer_factor}</>}
+            </p>
             <p><strong>Execution mode:</strong> {mode}</p>
 
             {entry.result?.payment_link_url && (

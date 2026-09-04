@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.agents.orchestrator import recovery_graph
 from app.agents.state import RecoveryState
 from app.agents.state import pipeline_status, update_status
+from app.customer.repository import resolve_customer_id
 
 router = APIRouter()
 
@@ -74,6 +75,7 @@ def submit_transaction(payload: TransactionSubmission):
         "retry_count": 0,
         "timestamp": datetime.utcnow().isoformat(),
     }
+    txn["customer_id"] = resolve_customer_id(txn)
     save_user_submission(txn)
     print(f"[submit] new transaction from {payload.customer_name}: {txn['transaction_id']}")
     return {"status": "ok", "transaction_id": txn["transaction_id"]}
@@ -97,6 +99,7 @@ def abandon_cart(payload: CartAbandonment):
         "retry_count": 0,
         "timestamp": datetime.utcnow().isoformat(),
     }
+    txn["customer_id"] = resolve_customer_id(txn)
     save_user_submission(txn)
     print(f"[abandon-cart] {payload.customer_name} abandoned ₹{payload.cart_value} cart ({payload.reason}): {txn['transaction_id']}")
     return {
@@ -185,8 +188,12 @@ def run_batch(limit: int | None = None, source: str = "sample"):
     initial_state: RecoveryState = {
         "transactions": transactions,
         "diagnoses": [],
+        "customer_profiles": [],
+        "customer_segments": [],
         "allocation": [],
         "decisions": [],
+        "negotiations": [],
+        "personalizations": [],
         "results": [],
         "audit_trail": [],
         "halted": False,

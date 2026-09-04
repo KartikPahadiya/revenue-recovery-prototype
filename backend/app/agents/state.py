@@ -9,6 +9,8 @@ from typing import TypedDict, List, Dict, Any
 class RecoveryState(TypedDict):
     transactions: List[Dict[str, Any]]
     diagnoses: List[Dict[str, Any]]
+    customer_profiles: List[Dict[str, Any]]
+    customer_segments: List[Dict[str, Any]]
     allocation: List[Dict[str, Any]]
     decisions: List[Dict[str, Any]]
     negotiations: List[Dict[str, Any]]      # was missing from the TypedDict too
@@ -22,7 +24,7 @@ class RecoveryState(TypedDict):
 # Shared, in-memory pipeline status the frontend polls during a run.
 # Simple module-level dict is fine for a single-user hackathon demo.
 pipeline_status = {
-    "stage": "idle",       # idle | detect | diagnose | allocate | decide | negotiate | execute | done
+    "stage": "idle",
     "current": 0,
     "total": 0,
     "message": "",

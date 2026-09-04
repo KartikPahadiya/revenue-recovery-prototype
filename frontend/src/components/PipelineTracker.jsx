@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 const STAGES = [
   { key: 'detect', label: 'Detect' },
   { key: 'diagnose', label: 'Diagnose' },
+  { key: 'profile', label: 'Profile' },
+  { key: 'segment', label: 'Segment' },
   { key: 'allocate', label: 'Allocate' },
   { key: 'decide', label: 'Decide' },
   { key: 'negotiate', label: 'Negotiate' },

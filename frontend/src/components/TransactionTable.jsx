@@ -5,7 +5,7 @@ export default function TransactionTable({ auditTrail }) {
       <table>
         <thead>
           <tr>
-            <th>ID</th><th>Category</th><th>Action</th><th>Outcome</th><th>Recovered</th><th>Mode</th>
+            <th>ID</th><th>Segment</th><th>Category</th><th>Action</th><th>Outcome</th><th>Recovered</th><th>Mode</th>
           </tr>
         </thead>
         <tbody>
@@ -16,6 +16,7 @@ export default function TransactionTable({ auditTrail }) {
             return (
               <tr key={entry.transaction_id}>
                 <td>{entry.transaction_id}</td>
+                <td>{entry.customer_segment || entry.decision?.customer_segment || 'NEW'}</td>
                 <td>{entry.diagnosis?.category}</td>
                 <td>{entry.decision?.action}</td>
                 <td className={entry.result?.outcome === 'recovered' ? 'ok' : ''}>
